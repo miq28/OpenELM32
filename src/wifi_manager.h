@@ -8,6 +8,7 @@ class WiFiManager
 {
 public:
     WiFiManager();
+    void setupServer();
     void setup();
     void loop();
     void sendBufferedData();

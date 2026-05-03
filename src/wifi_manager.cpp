@@ -3,31 +3,191 @@
 #include "gvret_comm.h"
 #include "SerialConsole.h"
 #include <ESPmDNS.h>
-#include <Update.h> 
 #include <WiFi.h>
-#include <FastLED.h>
 #include "ELM327_Emulator.h"
+#include "debug.h"
 
-extern CRGB leds[A5_NUM_LEDS];
+#define OTA_PORT 3232
+#define TELNET_PORT 23
+#define OBD_PORT 35000
 
-static IPAddress broadcastAddr(255,255,255,255);
+static IPAddress broadcastAddr(255, 255, 255, 255);
 
+// constructor must be here
 WiFiManager::WiFiManager()
+    : wifiServer(TELNET_PORT), wifiOBDII(OBD_PORT)
 {
     lastBroadcast = 0;
 }
 
+// ===== OTA STATE =====
+enum OTAState
+{
+    OTA_OFF = 0,
+    OTA_READY
+};
+
+static OTAState otaState = OTA_OFF;
+
+static void setHostnameEarly(const char *name)
+{
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif)
+    {
+        esp_netif_set_hostname(netif, name);
+    }
+}
+
+// ===== OTA HANDLERS (once) =====
+static void initOTAHandlers()
+{
+    static bool installed = false;
+    if (installed)
+        return;
+    installed = true;
+
+    ArduinoOTA
+        .onStart([]()
+                 {
+                      String type;
+                      if (ArduinoOTA.getCommand() == U_FLASH)
+                         type = "sketch";
+                      else // U_SPIFFS
+                         type = "filesystem";
+
+                      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+                      Serial.println("Start updating " + type); })
+        .onEnd([]()
+               { Serial.println("\nEnd"); })
+        .onProgress([](unsigned int progress, unsigned int total)
+                    { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); })
+        .onError([](ota_error_t error)
+                 {
+                      Serial.printf("Error[%u]: ", error);
+                      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+                      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+                      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+                      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+                      else if (error == OTA_END_ERROR) Serial.println("End Failed"); });
+}
+
+// ===== OTA CONTROL =====
+static void startOTA()
+{
+    if (otaState == OTA_READY)
+        return;
+
+    ArduinoOTA.setHostname(deviceName);
+    ArduinoOTA.setPort(OTA_PORT);
+    ArduinoOTA.begin();
+
+    otaState = OTA_READY;
+    DEBUG("OTA READY\n");
+}
+
+static void stopOTA()
+{
+    if (otaState == OTA_OFF)
+        return;
+    otaState = OTA_OFF;
+    DEBUG("OTA STOPPED\n");
+}
+
+// ===== WIFI EVENTS =====
+static void setupWiFiEvents()
+{
+    WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t info)
+                 {
+                     DEBUG("WiFi disconnected: %d\n", info.wifi_sta_disconnected.reason);
+                     stopOTA();
+                     MDNS.end();
+                     // udp.stop();
+                 },
+                 ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
+    WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t)
+                 {
+                     DEBUG("*** WiFi GOT IP: %s ***\n", WiFi.localIP().toString().c_str());
+                     DEBUG("*** HOST NAME: %s ***\n", WiFi.getHostname());
+
+                     // ===== OTA =====
+                     initOTAHandlers();
+                     startOTA();
+
+                     // ===== NetBIOS =====
+                     //  if (!NBNS.begin(deviceName))
+                     //  {
+                     //      DEBUG("Error setting up NetBIOS!\n");
+                     //  } else
+                     //     DEBUG("NetBIOS started\n");
+
+                     // ===== MDNS =====
+                     if (!MDNS.begin(deviceName))
+                     {
+                         DEBUG("Error setting up MDNS responder!\n");
+                     }
+                     else
+                     {
+                         MDNS.addService("gvretServer", "tcp", TELNET_PORT);
+                         MDNS.addService("ELM327", "tcp", OBD_PORT);
+                         DEBUG("MDNS started\n");
+                     }
+
+                     // ===== UDP LISTENER =====
+                     //  udp.begin(DISCOVERY_PORT);
+                     //  DEBUG("UDP listening on %d\n", DISCOVERY_PORT);
+                 },
+                 ARDUINO_EVENT_WIFI_STA_GOT_IP);
+}
+
+// ===== TCP SERVER =====
+void WiFiManager::setupServer()
+{
+    // server.onClient([](void *, AsyncClient *c)
+    //                 {
+    //                     if (client)
+    //                         client->close();
+
+    //                     client = c;
+    //                     client->setNoDelay(true);
+
+    //                     client->onDisconnect([](void *, AsyncClient *c)
+    //                                          {
+    //         if (client == c) client = nullptr; }, nullptr);
+
+    //                     client->onError([](void *, AsyncClient *c, int8_t)
+    //                                     {
+    //         if (client == c) client = nullptr; }, nullptr);
+
+    //                     client->onData([](void *, AsyncClient *, void *data, size_t len)
+    //                                    {
+    //         // uint8_t* d = (uint8_t*)data;
+    //         // for (size_t i = 0; i < len; i++)
+    //         //     transportDispatchByte(d[i]);
+    //         transportDispatchBuffer((const uint8_t*)data, len); }, nullptr); },
+    //                 nullptr);
+
+    // server.begin();
+
+    wifiServer.begin(); // setup as a telnet server
+    wifiServer.setNoDelay(true);
+    Serial.println("TCP server started");
+    wifiOBDII.begin(); // setup for wifi linked ELM327 emulation
+    wifiOBDII.setNoDelay(true);
+}
+
 void WiFiManager::setup()
 {
+    /*
     if (settings.enableBT != 0) return; //No wifi if BT is on
     if (settings.wifiMode == 1) //connect to an AP
-    {        
+    {
         Serial.println("Attempting to connect to a WiFi AP.");
         WiFi.mode(WIFI_STA);
         WiFi.setSleep(true); //sleeping could cause delays
         WiFi.begin((const char *)settings.SSID, (const char *)settings.WPA2Key);
 
-        WiFiEventId_t eventID = WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) 
+        WiFiEventId_t eventID = WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info)
         {
            if (SysSettings.fancyLED)
            {
@@ -37,7 +197,7 @@ void WiFiManager::setup()
            Serial.print("WiFi lost connection. Reason: ");
            Serial.println(info.wifi_sta_disconnected.reason);
            SysSettings.isWifiConnected = false;
-           if ( (info.wifi_sta_disconnected.reason == 202) || (info.wifi_sta_disconnected.reason == 3)) 
+           if ( (info.wifi_sta_disconnected.reason == 202) || (info.wifi_sta_disconnected.reason == 3))
            {
               Serial.println("Connection failed, rebooting to fix it.");
               esp_sleep_enable_timer_wakeup(10);
@@ -57,229 +217,366 @@ void WiFiManager::setup()
             FastLED.show();
         }
     }
+    */
+
+    setupWiFiEvents();
+
+    if (settings.wifiMode == 1)
+    {
+        Serial.println("Wifi mode: STA");
+
+        WiFi.mode(WIFI_STA);
+        WiFi.disconnect(true, true); // erase + stop
+        delay(200);
+
+        // ===== INIT LOW LEVEL (REQUIRED FOR HOSTNAME) =====
+        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        if (netif)
+        {
+            esp_netif_set_hostname(netif, deviceName);
+        }
+        WiFi.setHostname(deviceName);
+        WiFi.setSleep(false);
+        WiFi.begin(settings.STA_SSID, settings.STA_PASS);
+    }
+    else if (settings.wifiMode == 2)
+    {
+        Serial.println("Wifi mode: AP");
+
+        WiFi.mode(WIFI_AP);
+        WiFi.disconnect(true); // reset state
+        delay(100);
+
+        // set hostname on AP netif
+        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+        if (netif)
+        {
+            esp_netif_set_hostname(netif, deviceName);
+        }
+        WiFi.setHostname(deviceName);
+        WiFi.setSleep(false);
+        WiFi.softAP(settings.AP_SSID, settings.AP_PASS);
+
+        DEBUG("AP SSID: %s, PASS: %s\n", settings.AP_SSID, settings.AP_PASS);
+    }
+    else
+    {
+        Serial.println("Wifi mode: OFF");
+        WiFi.mode(WIFI_OFF);
+    }
+
+    setupServer();
+
+    DEBUG("NET INIT DONE\n");
 }
 
 void WiFiManager::loop()
 {
-    boolean needServerInit = false; 
-    int i;    
+    // boolean needServerInit = false;
+    // int i;
 
-    if (settings.enableBT != 0) return; //No wifi if BT is on
+    if (settings.enableBT != 0)
+        return; // No wifi if BT is on
 
-    if (settings.wifiMode > 0)
+    // if (settings.wifiMode > 0)
+    // {
+    //     if (!SysSettings.isWifiConnected)
+    //     {
+    //         if (WiFi.isConnected())
+    //         {
+    //             // WiFi.setSleep(false);
+    //             Serial.print("Wifi now connected to SSID ");
+    //             Serial.println((const char *)settings.SSID);
+    //             Serial.print("IP address: ");
+    //             Serial.println(WiFi.localIP());
+    //             Serial.print("RSSI: ");
+    //             Serial.println(WiFi.RSSI());
+    //             needServerInit = true;
+    //             if (SysSettings.fancyLED)
+    //             {
+    //                 leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Green;
+    //                 FastLED.show();
+    //             }
+    //         }
+    //         if (settings.wifiMode == 2)
+    //         {
+    //             Serial.print("Wifi setup as SSID ");
+    //             Serial.println((const char *)settings.SSID);
+    //             Serial.print("IP address: ");
+    //             Serial.println(WiFi.softAPIP());
+    //             needServerInit = true;
+    //         }
+    //         if (needServerInit)
+    //         {
+    //             SysSettings.isWifiConnected = true;
+    //             // MDNS.begin wants the name we will register as without the .local on the end. That's added automatically.
+    //             if (!MDNS.begin(deviceName))
+    //                 Serial.println("Error setting up MDNS responder!");
+    //             MDNS.addService("telnet", "tcp", 23);   // Add service to MDNS-SD
+    //             MDNS.addService("ELM327", "tcp", 1000); // Add service to MDNS-SD
+    //             wifiServer.begin(23);                   // setup as a telnet server
+    //             wifiServer.setNoDelay(true);
+    //             Serial.println("TCP server started");
+    //             wifiOBDII.begin(1000); // setup for wifi linked ELM327 emulation
+    //             wifiOBDII.setNoDelay(true);
+    //         }
+    //     }
+    //     else
+    //     {
+    //         if (WiFi.isConnected() || settings.wifiMode == 2)
+    //         {
+    //             if (wifiServer.hasClient())
+    //             {
+    //                 for (i = 0; i < MAX_CLIENTS; i++)
+    //                 {
+    //                     if (!SysSettings.clientNodes[i] || !SysSettings.clientNodes[i].connected())
+    //                     {
+    //                         if (SysSettings.clientNodes[i])
+    //                             SysSettings.clientNodes[i].stop();
+    //                         SysSettings.clientNodes[i] = wifiServer.accept();
+    //                         if (!SysSettings.clientNodes[i])
+    //                             Serial.println("Couldn't accept client connection!");
+    //                         else
+    //                         {
+    //                             Serial.print("New client: ");
+    //                             Serial.print(i);
+    //                             Serial.print(' ');
+    //                             Serial.println(SysSettings.clientNodes[i].remoteIP());
+    //                             if (SysSettings.fancyLED)
+    //                             {
+    //                                 leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Blue;
+    //                                 FastLED.show();
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //                 if (i >= MAX_CLIENTS)
+    //                 {
+    //                     // no free/disconnected spot so reject
+    //                     wifiServer.accept().stop();
+    //                 }
+    //             }
+
+    //             if (wifiOBDII.hasClient())
+    //             {
+    //                 for (i = 0; i < MAX_CLIENTS; i++)
+    //                 {
+    //                     if (!SysSettings.wifiOBDClients[i] || !SysSettings.wifiOBDClients[i].connected())
+    //                     {
+    //                         if (SysSettings.wifiOBDClients[i])
+    //                             SysSettings.wifiOBDClients[i].stop();
+    //                         SysSettings.wifiOBDClients[i] = wifiOBDII.accept();
+    //                         if (!SysSettings.wifiOBDClients[i])
+    //                             Serial.println("Couldn't accept client connection!");
+    //                         else
+    //                         {
+    //                             Serial.print("New wifi ELM client: ");
+    //                             Serial.print(i);
+    //                             Serial.print(' ');
+    //                             Serial.println(SysSettings.wifiOBDClients[i].remoteIP());
+    //                         }
+    //                     }
+    //                 }
+    //                 if (i >= MAX_CLIENTS)
+    //                 {
+    //                     // no free/disconnected spot so reject
+    //                     wifiOBDII.accept().stop();
+    //                 }
+    //             }
+
+    //             // check clients for data
+    //             for (i = 0; i < MAX_CLIENTS; i++)
+    //             {
+    //                 if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
+    //                 {
+    //                     if (SysSettings.clientNodes[i].available())
+    //                     {
+    //                         // get data from the telnet client and push it to input processing
+    //                         while (SysSettings.clientNodes[i].available())
+    //                         {
+    //                             uint8_t inByt;
+    //                             inByt = SysSettings.clientNodes[i].read();
+    //                             SysSettings.isWifiActive = true;
+    //                             // Serial.write(inByt); //echo to serial - just for debugging. Don't leave this on!
+    //                             wifiGVRET.processIncomingByte(inByt);
+    //                         }
+    //                     }
+    //                 }
+    //                 else
+    //                 {
+    //                     if (SysSettings.clientNodes[i])
+    //                     {
+    //                         SysSettings.clientNodes[i].stop();
+    //                         if (SysSettings.fancyLED)
+    //                         {
+    //                             leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Green;
+    //                             FastLED.show();
+    //                         }
+    //                     }
+    //                 }
+
+    //                 if (SysSettings.wifiOBDClients[i] && SysSettings.wifiOBDClients[i].connected())
+    //                 {
+    //                     elmEmulator.setWiFiClient(&SysSettings.wifiOBDClients[i]);
+    //                     /*if(SysSettings.wifiOBDClients[i].accept())
+    //                     {
+    //                         //get data from the telnet client and push it to input processing
+    //                         while(SysSettings.wifiOBDClients[i].accept())
+    //                         {
+    //                             uint8_t inByt;
+    //                             inByt = SysSettings.wifiOBDClients[i].read();
+    //                             SysSettings.isWifiActive = true;
+    //                             //wifiGVRET.processIncomingByte(inByt);
+    //                         }
+    //                     }*/
+    //                 }
+    //                 else
+    //                 {
+    //                     if (SysSettings.wifiOBDClients[i])
+    //                     {
+    //                         SysSettings.wifiOBDClients[i].stop();
+    //                         elmEmulator.setWiFiClient(0);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         else
+    //         {
+    //             if (settings.wifiMode == 1)
+    //             {
+    //                 Serial.println("WiFi disconnected. Bummer!");
+    //                 SysSettings.isWifiConnected = false;
+    //                 SysSettings.isWifiActive = false;
+    //                 if (SysSettings.fancyLED)
+    //                 {
+    //                     leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Red;
+    //                     FastLED.show();
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    int i;
+
+    if (WiFi.isConnected() || settings.wifiMode == 2)
     {
-        if (!SysSettings.isWifiConnected)
+        if (wifiServer.hasClient())
         {
-            if (WiFi.isConnected())
+            for (i = 0; i < MAX_CLIENTS; i++)
             {
-                //WiFi.setSleep(false);
-                Serial.print("Wifi now connected to SSID ");
-                Serial.println((const char *)settings.SSID);
-                Serial.print("IP address: ");
-                Serial.println(WiFi.localIP());
-                Serial.print("RSSI: ");
-                Serial.println(WiFi.RSSI());
-                needServerInit = true;
-                if (SysSettings.fancyLED)
+                if (!SysSettings.clientNodes[i] || !SysSettings.clientNodes[i].connected())
                 {
-                    leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Green;
-                    FastLED.show();
+                    if (SysSettings.clientNodes[i])
+                        SysSettings.clientNodes[i].stop();
+                    SysSettings.clientNodes[i] = wifiServer.accept();
+                    if (!SysSettings.clientNodes[i])
+                        Serial.println("Couldn't accept client connection!");
+                    else
+                    {
+                        Serial.print("New client: ");
+                        Serial.print(i);
+                        Serial.print(' ');
+                        Serial.println(SysSettings.clientNodes[i].remoteIP());
+                    }
                 }
             }
-            if (settings.wifiMode == 2)
+            if (i >= MAX_CLIENTS)
             {
-                Serial.print("Wifi setup as SSID ");
-                Serial.println((const char *)settings.SSID);
-                Serial.print("IP address: ");
-                Serial.println(WiFi.softAPIP());
-                needServerInit = true;
-            }
-            if (needServerInit)
-            {
-                SysSettings.isWifiConnected = true;
-                //MDNS.begin wants the name we will register as without the .local on the end. That's added automatically.
-                if (!MDNS.begin(deviceName)) Serial.println("Error setting up MDNS responder!");
-                MDNS.addService("telnet", "tcp", 23);// Add service to MDNS-SD
-                MDNS.addService("ELM327", "tcp", 1000);// Add service to MDNS-SD
-                wifiServer.begin(23); //setup as a telnet server
-                wifiServer.setNoDelay(true);
-                Serial.println("TCP server started");
-                wifiOBDII.begin(1000); //setup for wifi linked ELM327 emulation
-                wifiOBDII.setNoDelay(true);
-                ArduinoOTA.setPort(3232);
-                ArduinoOTA.setHostname(deviceName);
-                // No authentication by default
-                //ArduinoOTA.setPassword("admin");
-                
-                ArduinoOTA
-                   .onStart([]() {
-                      String type;
-                      if (SysSettings.fancyLED)
-                      {
-                          leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Purple;
-                          FastLED.show();
-                      }
-                      if (ArduinoOTA.getCommand() == U_FLASH)
-                         type = "sketch";
-                      else // U_SPIFFS
-                         type = "filesystem";
-
-                      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-                      Serial.println("Start updating " + type);
-                   })
-                   .onEnd([]() {
-                      Serial.println("\nEnd");
-                   })
-                   .onProgress([](unsigned int progress, unsigned int total) {
-                       Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-                   })
-                   .onError([](ota_error_t error) {
-                      Serial.printf("Error[%u]: ", error);
-                      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-                      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-                      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-                      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-                      else if (error == OTA_END_ERROR) Serial.println("End Failed");
-                   });
-                   
-                ArduinoOTA.begin();
+                // no free/disconnected spot so reject
+                wifiServer.accept().stop();
             }
         }
-        else
+
+        if (wifiOBDII.hasClient())
         {
-            if (WiFi.isConnected() || settings.wifiMode == 2)
+            for (i = 0; i < MAX_CLIENTS; i++)
             {
-                if (wifiServer.hasClient())
+                if (!SysSettings.wifiOBDClients[i] || !SysSettings.wifiOBDClients[i].connected())
                 {
-                    for(i = 0; i < MAX_CLIENTS; i++)
-                    {
-                        if (!SysSettings.clientNodes[i] || !SysSettings.clientNodes[i].connected())
-                        {
-                            if (SysSettings.clientNodes[i]) SysSettings.clientNodes[i].stop();
-                            SysSettings.clientNodes[i] = wifiServer.available();
-                            if (!SysSettings.clientNodes[i]) Serial.println("Couldn't accept client connection!");
-                            else 
-                            {
-                                Serial.print("New client: ");
-                                Serial.print(i); Serial.print(' ');
-                                Serial.println(SysSettings.clientNodes[i].remoteIP());
-                                if (SysSettings.fancyLED)
-                                {
-                                    leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Blue;
-                                    FastLED.show();
-                                }
-                            }
-                        }
-                    }
-                    if (i >= MAX_CLIENTS) {
-                        //no free/disconnected spot so reject
-                        wifiServer.available().stop();
-                    }
-                }
-
-                if (wifiOBDII.hasClient())
-                {
-                    for(i = 0; i < MAX_CLIENTS; i++)
-                    {
-                        if (!SysSettings.wifiOBDClients[i] || !SysSettings.wifiOBDClients[i].connected())
-                        {
-                            if (SysSettings.wifiOBDClients[i]) SysSettings.wifiOBDClients[i].stop();
-                            SysSettings.wifiOBDClients[i] = wifiOBDII.available();
-                            if (!SysSettings.wifiOBDClients[i]) Serial.println("Couldn't accept client connection!");
-                            else 
-                            {
-                                Serial.print("New wifi ELM client: ");
-                                Serial.print(i); Serial.print(' ');
-                                Serial.println(SysSettings.wifiOBDClients[i].remoteIP());
-                            }
-                        }
-                    }
-                    if (i >= MAX_CLIENTS) {
-                        //no free/disconnected spot so reject
-                        wifiOBDII.available().stop();
-                    }
-                }
-
-                //check clients for data
-                for(i = 0; i < MAX_CLIENTS; i++)
-                {
-                    if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
-                    {
-                        if(SysSettings.clientNodes[i].available())
-                        {
-                            //get data from the telnet client and push it to input processing
-                            while(SysSettings.clientNodes[i].available()) 
-                            {
-                                uint8_t inByt;
-                                inByt = SysSettings.clientNodes[i].read();
-                                SysSettings.isWifiActive = true;
-                                //Serial.write(inByt); //echo to serial - just for debugging. Don't leave this on!
-                                wifiGVRET.processIncomingByte(inByt);
-                            }
-                        }
-                    }
+                    if (SysSettings.wifiOBDClients[i])
+                        SysSettings.wifiOBDClients[i].stop();
+                    SysSettings.wifiOBDClients[i] = wifiOBDII.accept();
+                    if (!SysSettings.wifiOBDClients[i])
+                        Serial.println("Couldn't accept client connection!");
                     else
                     {
-                        if (SysSettings.clientNodes[i]) 
-                        {
-                            SysSettings.clientNodes[i].stop();
-                            if (SysSettings.fancyLED)
-                            {
-                                leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Green;
-                                FastLED.show();
-                            }
-                        }
+                        Serial.print("New wifi ELM client: ");
+                        Serial.print(i);
+                        Serial.print(' ');
+                        Serial.println(SysSettings.wifiOBDClients[i].remoteIP());
                     }
-
-                    if (SysSettings.wifiOBDClients[i] && SysSettings.wifiOBDClients[i].connected())
-                    {
-                        elmEmulator.setWiFiClient(&SysSettings.wifiOBDClients[i]);
-                        /*if(SysSettings.wifiOBDClients[i].available())
-                        {
-                            //get data from the telnet client and push it to input processing
-                            while(SysSettings.wifiOBDClients[i].available()) 
-                            {
-                                uint8_t inByt;
-                                inByt = SysSettings.wifiOBDClients[i].read();
-                                SysSettings.isWifiActive = true;
-                                //wifiGVRET.processIncomingByte(inByt);
-                            }
-                        }*/
-                    }
-                    else
-                    {
-                        if (SysSettings.wifiOBDClients[i])
-                        {
-                            SysSettings.wifiOBDClients[i].stop();
-                            elmEmulator.setWiFiClient(0);
-                        }
-                    }
-                }                    
+                }
             }
-            else 
+            if (i >= MAX_CLIENTS)
             {
-                if (settings.wifiMode == 1)
+                // no free/disconnected spot so reject
+                wifiOBDII.accept().stop();
+            }
+        }
+
+        // check clients for data
+        for (i = 0; i < MAX_CLIENTS; i++)
+        {
+            if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
+            {
+                if (SysSettings.clientNodes[i].available())
                 {
-                    Serial.println("WiFi disconnected. Bummer!");
-                    SysSettings.isWifiConnected = false;
-                    SysSettings.isWifiActive = false;
-                    if (SysSettings.fancyLED)
-                    {  
-                        leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Red;
-                        FastLED.show();
+                    // get data from the telnet client and push it to input processing
+                    while (SysSettings.clientNodes[i].available())
+                    {
+                        uint8_t inByt;
+                        inByt = SysSettings.clientNodes[i].read();
+                        SysSettings.isWifiActive = true;
+                        // Serial.write(inByt); //echo to serial - just for debugging. Don't leave this on!
+                        wifiGVRET.processIncomingByte(inByt);
                     }
+                }
+            }
+            else
+            {
+                if (SysSettings.clientNodes[i])
+                {
+                    SysSettings.clientNodes[i].stop();
+                }
+            }
+
+            if (SysSettings.wifiOBDClients[i] && SysSettings.wifiOBDClients[i].connected())
+            {
+                elmEmulator.setWiFiClient(&SysSettings.wifiOBDClients[i]);
+                /*if(SysSettings.wifiOBDClients[i].accept())
+                {
+                    //get data from the telnet client and push it to input processing
+                    while(SysSettings.wifiOBDClients[i].accept())
+                    {
+                        uint8_t inByt;
+                        inByt = SysSettings.wifiOBDClients[i].read();
+                        SysSettings.isWifiActive = true;
+                        //wifiGVRET.processIncomingByte(inByt);
+                    }
+                }*/
+            }
+            else
+            {
+                if (SysSettings.wifiOBDClients[i])
+                {
+                    SysSettings.wifiOBDClients[i].stop();
+                    elmEmulator.setWiFiClient(0);
                 }
             }
         }
     }
 
-    if (SysSettings.isWifiConnected && ((micros() - lastBroadcast) > 1000000ul) ) //every second send out a broadcast ping
+    if (WiFi.status() == WL_CONNECTED || WiFi.getMode() == WIFI_AP)
     {
-        uint8_t buff[4] = {0x1C,0xEF,0xAC,0xED};
-        lastBroadcast = micros();
-        wifiUDPServer.beginPacket(broadcastAddr, 17222);
-        wifiUDPServer.write(buff, 4);
-        wifiUDPServer.endPacket();
+        if ((micros() - lastBroadcast) > 1000000ul)
+        {
+            lastBroadcast = micros();
+            uint8_t buff[4] = {0x1C, 0xEF, 0xAC, 0xED};
+            wifiUDPServer.beginPacket(broadcastAddr, 17222);
+            wifiUDPServer.write(buff, 4);
+            wifiUDPServer.endPacket();
+        }
     }
 
     ArduinoOTA.handle();
@@ -287,11 +584,12 @@ void WiFiManager::loop()
 
 void WiFiManager::sendBufferedData()
 {
-    if (settings.enableBT != 0) return; //No wifi if BT is on
-    for(int i = 0; i < MAX_CLIENTS; i++)
+    if (settings.enableBT != 0)
+        return; // No wifi if BT is on
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         size_t wifiLength = wifiGVRET.numAvailableBytes();
-        uint8_t* buff = wifiGVRET.getBufferedBytes();
+        uint8_t *buff = wifiGVRET.getBufferedBytes();
         if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
         {
             SysSettings.clientNodes[i].write(buff, wifiLength);
@@ -303,19 +601,19 @@ void WiFiManager::sendBufferedData()
 // Utility to extract header value from headers
 String getHeaderValue(String header, String headerName)
 {
-  return header.substring(strlen(headerName.c_str()));
+    return header.substring(strlen(headerName.c_str()));
 }
 
 void onOTAProgress(uint32_t progress, size_t fullSize)
 {
     static int OTAcount = 0;
-    //esp_task_wdt_reset();
+    // esp_task_wdt_reset();
     if (OTAcount++ == 10)
     {
         Serial.println(progress);
         OTAcount = 0;
     }
-    else 
+    else
     {
         Serial.print("...");
         Serial.print(progress);
@@ -341,11 +639,11 @@ void WiFiManager::attemptOTAUpdate()
 
     int contentLength = 0;
     bool isValidContentType = false;
-    //TODO: figure out where github stores files in releases and/or how and where the images will be stored.
+    // TODO: figure out where github stores files in releases and/or how and where the images will be stored.
     int port = 80; // Non https. HTTPS would be 443 but that might not work.
     String host = String(otaHost);
     String bin = String(otaFilename);
-    //esp_task_wdt_reset(); //in case watchdog was set, update it.
+    // esp_task_wdt_reset(); //in case watchdog was set, update it.
     Update.onProgress(onOTAProgress);
 
     Serial.println("Connecting to OTA server: " + host);
@@ -353,9 +651,9 @@ void WiFiManager::attemptOTAUpdate()
     if (wifiClient.connect(otaHost, port))
     {
         wifiClient.print(String("GET ") + bin + " HTTP/1.1\r\n" +
-                     "Host: " + String(host) + "\r\n" +
-                     "Cache-Control: no-cache\r\n" +
-                     "Connection: close\r\n\r\n");  // Get the contents of the bin file
+                         "Host: " + String(host) + "\r\n" +
+                         "Cache-Control: no-cache\r\n" +
+                         "Connection: close\r\n\r\n"); // Get the contents of the bin file
 
         unsigned long timeout = millis();
         while (wifiClient.available() == 0)
@@ -367,16 +665,17 @@ void WiFiManager::attemptOTAUpdate()
                 return;
             }
         }
-    
+
         while (wifiClient.available())
         {
-            String line = wifiClient.readStringUntil('\n');// read line till /n
-            line.trim();// remove space, to check if the line is end of headers
+            String line = wifiClient.readStringUntil('\n'); // read line till /n
+            line.trim();                                    // remove space, to check if the line is end of headers
 
             // if the the line is empty,this is end of headers break the while and feed the
             // remaining `client` to the Update.writeStream();
 
-            if (!line.length()) {
+            if (!line.length())
+            {
                 break;
             }
 
@@ -409,16 +708,16 @@ void WiFiManager::attemptOTAUpdate()
                     isValidContentType = true;
                 }
             }
-        } //end while client available
+        } // end while client available
     }
-    else 
+    else
     {
         // Connect to remote failed
         Serial.println("Connection to " + String(host) + " failed. Please check your setup!");
     }
 
     // Check what is the contentLength and if content type is `application/octet-stream`
-    //Serial.println("File length: " + String(contentLength) + ", Valid Content Type flag:" + String(isValidContentType));
+    // Serial.println("File length: " + String(contentLength) + ", Valid Content Type flag:" + String(isValidContentType));
 
     // check contentLength and content type
     if (contentLength && isValidContentType) // Check if there is enough to OTA Update
@@ -435,7 +734,7 @@ void WiFiManager::attemptOTAUpdate()
             }
             else
             {
-                Serial.println("\n********** FAILED - Wrote:" + String(written) + " of " + String(contentLength) + ". Try again later. ********\n\n" );
+                Serial.println("\n********** FAILED - Wrote:" + String(written) + " of " + String(contentLength) + ". Try again later. ********\n\n");
                 return;
             }
 
@@ -447,27 +746,27 @@ void WiFiManager::attemptOTAUpdate()
                     Serial.println("Rebooting new firmware...\n");
                     ESP.restart();
                 }
-                else Serial.println("FAILED...update not finished? Something went wrong!");
-
+                else
+                    Serial.println("FAILED...update not finished? Something went wrong!");
             }
             else
             {
                 Serial.println("Error Occurred. Error #: " + String(Update.getError()));
                 return;
             }
-        } //end if can begin
-        else 
+        } // end if can begin
+        else
         {
             // not enough space to begin OTA
             // Understand the partitions and space availability
 
             Serial.println("Not enough space to begin OTA");
-            wifiClient.flush();
+            wifiClient.clear();
         }
-    } //End contentLength && isValidContentType
+    } // End contentLength && isValidContentType
     else
     {
         Serial.println("There was no content in the response");
-        wifiClient.flush();
+        wifiClient.clear();
     }
 }

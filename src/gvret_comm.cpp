@@ -234,10 +234,10 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
         case SET_DIG_OUTPUTS: //todo: validate the XOR byte
             buff[1] = in_byte;
             //temp8 = checksumCalc(buff, 2);
-            for(int c = 0; c < 8; c++){
-                if(in_byte & (1 << c)) setOutput(c, true);
-                else setOutput(c, false);
-            }
+            // for(int c = 0; c < 8; c++){
+            //     if(in_byte & (1 << c)) setOutput(c, true);
+            //     else setOutput(c, false);
+            // }
             state = IDLE;
             break;
         case SETUP_CANBUS: //todo: validate checksum
@@ -417,7 +417,6 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
                     //temp8 = checksumCalc(buff, step);
                     //if (temp8 == in_byte)
                     //{
-                    toggleRXLED();
                     //if(isConnected) {
                     canManager.displayFrame(build_out_frame, 0);
                     //}

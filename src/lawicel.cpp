@@ -6,6 +6,7 @@ Implements the lawicel protocol.
 #include "config.h"
 #include <esp32_can.h>
 #include "utility.h"
+#include "debug.h"
 
 void LAWICELHandler::handleShortCmd(char cmd)
 {
@@ -160,14 +161,14 @@ void LAWICELHandler::handleLongCmd(char *buffer)
                 for (int b = 0; b < numBytes; b++) outFrame.data.bytes[b] = bytes[b];
                 CAN0.sendFrame(outFrame);
             }
-            if (!strcasecmp(tokens[1], "CAN1")) {
-                CAN_FRAME outFrame;
-                outFrame.id = id;
-                outFrame.length = numBytes;
-                outFrame.extended = false;
-                for (int b = 0; b < numBytes; b++) outFrame.data.bytes[b] = bytes[b];
-                CAN1.sendFrame(outFrame);
-            }            
+            // if (!strcasecmp(tokens[1], "CAN1")) {
+            //     CAN_FRAME outFrame;
+            //     outFrame.id = id;
+            //     outFrame.length = numBytes;
+            //     outFrame.extended = false;
+            //     for (int b = 0; b < numBytes; b++) outFrame.data.bytes[b] = bytes[b];
+            //     CAN1.sendFrame(outFrame);
+            // }            
         }
     case 's': //setup canbus baud via register writes (we can't really do that...)
         //settings.CAN0Speed = 250000;
@@ -177,7 +178,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
     case 'R': 
         if (SysSettings.lawicellExtendedMode) { //Lawicel V2 - Set that we want to receive traffic from the given bus - R <BUSID>
             if (!strcasecmp(tokens[1], "CAN0")) SysSettings.lawicelBusReception[0] = true;
-            if (!strcasecmp(tokens[1], "CAN1")) SysSettings.lawicelBusReception[1] = true;
+            // if (!strcasecmp(tokens[1], "CAN1")) SysSettings.lawicelBusReception[1] = true;
         }
         else { //Lawicel V1 - send extended RTR frame (NO! DON'T DO IT!)
         }
@@ -198,11 +199,11 @@ void LAWICELHandler::handleLongCmd(char *buffer)
                 if (!strcasecmp(tokens[4], "X")) CAN0.setRXFilter(0, filt, mask, true);
                     else CAN0.setRXFilter(0, filt, mask, false);
             }
-            if (!strcasecmp(tokens[1], "CAN1"))
-            {
-                if (!strcasecmp(tokens[4], "X")) CAN1.setRXFilter(0, filt, mask, true);
-                    else CAN1.setRXFilter(0, filt, mask, false);
-            }
+            // if (!strcasecmp(tokens[1], "CAN1"))
+            // {
+            //     if (!strcasecmp(tokens[4], "X")) CAN1.setRXFilter(0, filt, mask, true);
+            //         else CAN1.setRXFilter(0, filt, mask, false);
+            // }
         }
         else { //Lawicel V1 - set acceptance code
         }        
@@ -210,7 +211,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
     case 'H':
         if (SysSettings.lawicellExtendedMode) { //Lawicel V2 - Halt reception of traffic from given bus - H <busid>
             if (!strcasecmp(tokens[1], "CAN0")) SysSettings.lawicelBusReception[0] = false;
-            if (!strcasecmp(tokens[1], "CAN1")) SysSettings.lawicelBusReception[1] = false;
+            // if (!strcasecmp(tokens[1], "CAN1")) SysSettings.lawicelBusReception[1] = false;
         } 
         break;        
     case 'U': //set uart speed. We just ignore this. You can't set a baud rate on a USB CDC port
@@ -228,9 +229,9 @@ void LAWICELHandler::handleLongCmd(char *buffer)
             if (!strcasecmp(tokens[1], "CAN0")) {
                 CAN0.begin(speed, 255);
             }
-            if (!strcasecmp(tokens[1], "CAN1")) {
-                CAN1.begin(speed, 255);
-            }            
+            // if (!strcasecmp(tokens[1], "CAN1")) {
+            //     CAN1.begin(speed, 255);
+            // }            
         }
         break;
     }
@@ -269,9 +270,9 @@ void LAWICELHandler::printBusName(int bus) {
     case 0:
         Serial.print("CAN0");
         break;
-    case 1:
-        Serial.print("CAN1");
-        break;
+    // case 1:
+    //     Serial.print("CAN1");
+    //     break;
     default:
         Serial.print("UNKNOWN");
         break;

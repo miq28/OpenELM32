@@ -33,10 +33,11 @@
 #include <esp32_can.h>
 #include <Preferences.h>
 #include "config.h"
-#include "sys_io.h"
 #include "lawicel.h"
 #include "ELM327_Emulator.h"
 #include "can_manager.h"
+#include "Logger.h"
+
 
 extern void CANHandler();
 
@@ -155,20 +156,20 @@ void SerialConsole::handleShortCmd()
         printMenu();
         break;
     case 'R': //reset to factory defaults.
-        nvPrefs.begin(PREF_NAME, false);
-        nvPrefs.clear();
-        nvPrefs.end();        
+        prefs.begin(PREF_NAME, false);
+        prefs.clear();
+        prefs.end();        
         Logger::console("Power cycle to reset to factory defaults");
         break;
     case '~':
         Serial.println("DEBUGGING MODE!");
         CAN0.setDebuggingMode(true);
-        CAN1.setDebuggingMode(true);
+        // CAN1.setDebuggingMode(true);
         break;
     case '`':
         Serial.println("Normal mode");
         CAN0.setDebuggingMode(false);
-        CAN1.setDebuggingMode(false);
+        // CAN1.setDebuggingMode(false);
         break;    
     default:
         if (settings.enableLawicel) lawicel.handleShortCmd(cmdBuffer[0]);
@@ -428,34 +429,34 @@ void SerialConsole::handleConfigCmd()
         Logger::console("Unknown command");
     }
     if (writeEEPROM) {
-        nvPrefs.begin(PREF_NAME, false);
+        prefs.begin(PREF_NAME, false);
 
         char buff[80];
         for (int i = 0; i < SysSettings.numBuses; i++)
         {
             sprintf(buff, "can%ispeed", i);
-            nvPrefs.putUInt(buff, settings.canSettings[i].nomSpeed);
+            prefs.putUInt(buff, settings.canSettings[i].nomSpeed);
             sprintf(buff, "can%i_en", i);
-            nvPrefs.putBool(buff, settings.canSettings[i].enabled);
+            prefs.putBool(buff, settings.canSettings[i].enabled);
             sprintf(buff, "can%i-listenonly", i);
-            nvPrefs.putBool(buff, settings.canSettings[i].listenOnly);
+            prefs.putBool(buff, settings.canSettings[i].listenOnly);
             sprintf(buff, "can%i-fdspeed", i);
-            nvPrefs.putUInt(buff, settings.canSettings[i].fdSpeed);
+            prefs.putUInt(buff, settings.canSettings[i].fdSpeed);
             sprintf(buff, "can%i-fdmode", i);
-            nvPrefs.putBool(buff, settings.canSettings[i].fdMode);
+            prefs.putBool(buff, settings.canSettings[i].fdMode);
         }
         
-        nvPrefs.putBool("binarycomm", settings.useBinarySerialComm);
-        nvPrefs.putBool("enable-bt", settings.enableBT);
-        nvPrefs.putInt("sendingBus", settings.sendingBus);
-        nvPrefs.putBool("enableLawicel", settings.enableLawicel);
-        nvPrefs.putUChar("loglevel", settings.logLevel);
-        nvPrefs.putUChar("systype", settings.systemType);
-        nvPrefs.putUChar("wifiMode", settings.wifiMode);
-        nvPrefs.putString("SSID", settings.SSID);
-        nvPrefs.putString("wpa2Key", settings.WPA2Key);
-        nvPrefs.putString("btname", settings.btName);
-        nvPrefs.end();
+        prefs.putBool("binarycomm", settings.useBinarySerialComm);
+        prefs.putBool("enable-bt", settings.enableBT);
+        prefs.putInt("sendingBus", settings.sendingBus);
+        prefs.putBool("enableLawicel", settings.enableLawicel);
+        prefs.putUChar("loglevel", settings.logLevel);
+        prefs.putUChar("systype", settings.systemType);
+        prefs.putUChar("wifiMode", settings.wifiMode);
+        prefs.putString("SSID", settings.SSID);
+        prefs.putString("wpa2Key", settings.WPA2Key);
+        prefs.putString("btname", settings.btName);
+        prefs.end();
     }
 } 
 
@@ -528,8 +529,6 @@ bool SerialConsole::handleCANSend(CAN_COMMON &port, char *inputString)
     port.sendFrame(frame);
     
     Logger::console("Sending frame with id: 0x%x len: %i", frame.id, frame.length);
-    SysSettings.txToggle = !SysSettings.txToggle;
-    setLED(SysSettings.LED_CANTX, SysSettings.txToggle);
     return true;
 }
 
@@ -538,9 +537,9 @@ void SerialConsole::printBusName(int bus) {
     case 0:
         Serial.print("CAN0");
         break;
-    case 1:
-        Serial.print("CAN1");
-        break;
+    // case 1:
+    //     Serial.print("CAN1");
+    //     break;
     default:
         Serial.print("UNKNOWN");
         break;

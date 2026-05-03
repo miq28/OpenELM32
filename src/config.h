@@ -33,8 +33,56 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <WiFi.h>
 #include <esp32_can.h>
-#include <esp32_mcp2517fd.h>
+// #include <esp32_mcp2517fd.h>
 #include <Preferences.h>
+
+
+#if defined(SPARKLE_IOT_XH_S3E_N16R8)
+#define CAN_TX GPIO_NUM_7
+#define CAN_RX GPIO_NUM_6
+
+#elif defined(WEACT_STUDIO_CAN485_V1)
+// CAN / TWAI
+#define CAN_TX GPIO_NUM_27
+#define CAN_RX GPIO_NUM_26
+// TF / SD card SPI
+#define SD_CS GPIO_NUM_13
+#define SD_SCK GPIO_NUM_14
+#define SD_MOSI GPIO_NUM_15
+#define SD_MISO GPIO_NUM_2
+// RS485
+#define RS485_DE GPIO_NUM_17
+#define RS485_RO GPIO_NUM_21 // RX into ESP32
+#define RS485_DI GPIO_NUM_22 // TX from ESP32
+// VIN monitor
+#define VIN_ADC GPIO_NUM_36
+// WS2812
+#define RGB_LED GPIO_NUM_4
+// Button
+#define KEY GPIO_NUM_0
+
+#elif defined(WAVESHARE_ESP32_S3_RS485_CAN)
+// CAN / TWAI
+#define CAN_TX GPIO_NUM_15
+#define CAN_RX GPIO_NUM_16
+// RS485
+#define RS485_DE GPIO_NUM_21 // EN
+#define RS485_RO GPIO_NUM_18 // RX into ESP32
+#define RS485_DI GPIO_NUM_17 // TX from ESP32
+// RTC
+#define RTC_SCL GPIO_NUM_38
+#define RTC_SDA GPIO_NUM_39
+#define RTC_INT GPIO_NUM_40
+// Not assigned (external SH1.0 connector)
+#define NOT_ASSIGNED_1 GPIO_NUM_1
+#define NOT_ASSIGNED_2 GPIO_NUM_2
+// Used for USB CDC - do not use!!
+#define USB_D_P GPIO_NUM_19 // USB D+
+#define USB_D_N GPIO_NUM_20 // USB D-
+// Button
+#define KEY GPIO_NUM_0
+#endif
+
 
 //size to use for buffering writes to USB. On the ESP32 we're actually talking TTL serial to a TTL<->USB chip
 #define SER_BUFF_SIZE       1024
@@ -61,17 +109,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define NUM_DIGITAL 6   // Not currently using digital pins on the ESP32
 #define NUM_OUTPUT  6   // Ditto
 
-#define NUM_BUSES   5   //max # of buses supported by any of the supported boards
+#define NUM_BUSES   1   //max # of buses supported by any of the supported boards
 
 //It's not even used on this hardware currently. But, slows down the blinks to make them more visible
-#define BLINK_SLOWNESS  100 
+#define BLINK_SLOWNESS  1 
 
-#define A0_LED_PIN     2
+#define A0_LED_PIN     GPIO_NUM_4 // was 2
 #define A0_NUM_LEDS    1
-#define A5_LED_PIN     15
-#define A5_NUM_LEDS    4
-#define BRIGHTNESS  190
-#define LED_TYPE    WS2812B
+#define A5_LED_PIN     GPIO_NUM_4 // was 15
+#define A5_NUM_LEDS    1 // was 4
+#define LED_BRIGHTNESS  190
+#define LED_TYPE    WS2812 // was WS2812B
 #define COLOR_ORDER GRB
 
 #define SW_EN     2
@@ -80,6 +128,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 //How many devices to allow to connect to our WiFi telnet port?
 #define MAX_CLIENTS 1
+
+
+
+
+
+
 
 struct FILTER {  //should be 10 bytes
     uint32_t id;
@@ -105,7 +159,7 @@ struct EEPROMSettings {
     uint8_t systemType; //0 = A0RET, 1 = EVTV ESP32 Board, 2 = Macchine 5-CAN board
     
     boolean enableBT; //are we enabling bluetooth too?
-    char btName[32];
+    char btName[62];
     int sendingBus;
 
     boolean enableLawicel;
@@ -114,6 +168,13 @@ struct EEPROMSettings {
     uint8_t wifiMode; //0 = don't use wifi, 1 = connect to an AP, 2 = Create an AP
     char SSID[32];     //null terminated string for the SSID
     char WPA2Key[64]; //Null terminated string for the key. Can be a passphase or the actual key
+
+    char STA_SSID[32];
+    char STA_PASS[64];
+
+    char AP_SSID[32];
+    char AP_PASS[64];
+
 } __attribute__((__packed__));
 
 struct SystemSettings {
@@ -146,7 +207,7 @@ class ELM327Emu;
 
 extern EEPROMSettings settings;
 extern SystemSettings SysSettings;
-extern Preferences nvPrefs;
+extern Preferences prefs;
 extern GVRET_Comm_Handler serialGVRET;
 extern GVRET_Comm_Handler wifiGVRET;
 extern SerialConsole console;

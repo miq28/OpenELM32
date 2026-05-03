@@ -7,6 +7,7 @@
 #include "ELM327_Emulator.h"
 #include "debug.h"
 #include "heap_probe.h"
+#include "esp_phy_init.h"
 
 #define OTA_PORT 3232
 #define TELNET_PORT 23
@@ -157,6 +158,10 @@ void WiFiManager::setup()
         }
         WiFi.setHostname(deviceName);
         WiFi.setSleep(false);
+
+        // WiFi.persistent(false);
+        // esp_phy_erase_cal_data_in_nvs();
+
         WiFi.begin(settings.STA_SSID, settings.STA_PASS);
     }
     else if (settings.wifiMode == 2)
@@ -418,7 +423,114 @@ void WiFiManager::loop()
 //     }
 // }
 
-static const size_t WIFI_CHUNK = 1024; // 512–1200 is safe
+
+// =================================
+
+
+// static const size_t WIFI_CHUNK = 1024;
+// static const size_t WIFI_BATCH = 4096;
+
+// static uint8_t batchBuf[WIFI_BATCH];
+// static size_t batchLen = 0;
+
+// void WiFiManager::sendBufferedData()
+// {
+//     if (settings.enableBT != 0)
+//         return;
+
+//     // ===== periodic stats =====
+//     static uint32_t lastLog = 0;
+//     if (millis() - lastLog > 300)
+//     {
+//         lastLog = millis();
+
+//         DEBUG("[STAT] free:%u min:%u largest:%u buf:%u\n",
+//               ESP.getFreeHeap(),
+//               heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
+//               heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+//               wifiGVRET.numAvailableBytes());
+//     }
+
+//     for (int i = 0; i < MAX_CLIENTS; i++)
+//     {
+//         if (!(SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected()))
+//             continue;
+
+//         // ===== heap safety =====
+//         if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 20000)
+//             break;
+
+//         // ===== STEP 1: fill batch (NO CONSUME HERE) =====
+//         size_t available = wifiGVRET.numAvailableBytes();
+
+//         while (available > 0 && batchLen < WIFI_BATCH)
+//         {
+//             size_t take = available;
+
+//             if (take > WIFI_CHUNK)
+//                 take = WIFI_CHUNK;
+
+//             if (take > (WIFI_BATCH - batchLen))
+//                 take = (WIFI_BATCH - batchLen);
+
+//             uint8_t *src = wifiGVRET.getBufferedBytes();
+
+//             memcpy(batchBuf + batchLen, src, take);
+//             batchLen += take;
+
+//             // DO NOT consume yet
+
+//             available = wifiGVRET.numAvailableBytes();
+
+//             // IMPORTANT: prevent infinite loop since we didn't consume
+//             break;
+//         }
+
+//         // ===== STEP 2: send =====
+//         if (batchLen > 0)
+//         {
+//             size_t sent = SysSettings.clientNodes[i].write(batchBuf, batchLen);
+
+//             if (sent == batchLen)
+//             {
+//                 // full success
+//                 wifiGVRET.consume(sent);
+//                 batchLen = 0;
+//             }
+//             else if (sent > 0)
+//             {
+//                 // partial send
+//                 wifiGVRET.consume(sent);
+
+//                 memmove(batchBuf, batchBuf + sent, batchLen - sent);
+//                 batchLen -= sent;
+
+//                 DEBUG("[WARN][wifi] partial send %u/%u\n",
+//                       (unsigned)sent, (unsigned)(sent + batchLen));
+//             }
+//             else
+//             {
+//                 // sent == 0 → TCP full, retry later
+//                 DEBUG("[WARN][wifi] send stalled (0/%u)\n",
+//                       (unsigned)batchLen);
+//             }
+
+//             taskYIELD();
+//         }
+//     }
+// }
+
+
+static const size_t WIFI_CHUNK = 1024;
+static const size_t WIFI_BATCH = 4096;
+
+// how long to accumulate before sending (microseconds)
+static const uint32_t WIFI_BATCH_TIME_US = 1000; // 1 ms
+
+static uint8_t batchBuf[WIFI_BATCH];
+static size_t batchLen = 0;
+
+static uint32_t lastSendUs = 0;
 
 void WiFiManager::sendBufferedData()
 {
@@ -430,54 +542,53 @@ void WiFiManager::sendBufferedData()
     {
         lastLog = millis();
 
-        DEBUG(
-            "[STAT] free:%u min:%u largest:%u buf:%u\n",
-            ESP.getFreeHeap(),
-            heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
-            heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-            wifiGVRET.numAvailableBytes());
+        DEBUG("[STAT] free:%u min:%u largest:%u buf:%u\n",
+              ESP.getFreeHeap(),
+              heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
+              heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+              wifiGVRET.numAvailableBytes());
     }
+
+    uint32_t nowUs = micros();
+
+    // wait batching window
+    if ((nowUs - lastSendUs) < WIFI_BATCH_TIME_US)
+        return;
+
+    lastSendUs = nowUs;
+
+    size_t len = wifiGVRET.numAvailableBytes();
+    if (len == 0)
+        return;
+
+    uint8_t *buf = wifiGVRET.getBufferedBytes();
 
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
+        if (!(SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected()))
+            continue;
+
+        if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 20000)
+            break;
+
+        size_t sent = SysSettings.clientNodes[i].write(buf, len);
+
+        if (sent == len)
         {
-            // ===== heap protection =====
-            if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 20000)
-                return;
+            wifiGVRET.clearBufferedBytes();
+        }
+        else if (sent > 0)
+        {
+            // partial send → shift safely
+            memmove(buf, buf + sent, len - sent);
+            wifiGVRET.consume(sent);
 
-            size_t wifiLength = wifiGVRET.numAvailableBytes();
-            uint8_t *buff = wifiGVRET.getBufferedBytes();
-
-            size_t toSend = wifiLength;
-            if (toSend > WIFI_CHUNK)
-                toSend = WIFI_CHUNK;
-
-            size_t sent = 0;
-
-            if (toSend > 0)
-            {
-                sent = SysSettings.clientNodes[i].write(buff, toSend);
-            }
-
-            if (sent < toSend)
-            {
-                DEBUG("[WARN][wifi] partial send %u/%u\n",
-                      (unsigned)sent, (unsigned)toSend);
-            }
-
-            // ===== safe buffer handling =====
-            if (sent == wifiLength)
-            {
-                wifiGVRET.clearBufferedBytes();
-            }
-            else if (sent > 0)
-            {
-                wifiGVRET.consume(sent);
-            }
-
-            if (sent > 0)
-                taskYIELD();
+            DEBUG("[WARN][wifi] partial send %u/%u\n",
+                  (unsigned)sent, (unsigned)len);
+        }
+        else
+        {
+            DEBUG("[WARN][wifi] stalled send\n");
         }
     }
 }

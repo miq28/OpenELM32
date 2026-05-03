@@ -469,7 +469,7 @@ void setup()
     // CAN0.setDebuggingMode(true);
     // CAN1.setDebuggingMode(true);
 
-    canManager.setup();
+    
 
     if (settings.enableBT)
     {
@@ -478,6 +478,8 @@ void setup()
     }
 
     /*else*/ wifiManager.setup();
+
+    canManager.setup();
 
     SysSettings.lawicelMode = false;
     SysSettings.lawicelAutoPoll = false;

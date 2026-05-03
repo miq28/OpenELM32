@@ -505,7 +505,7 @@ void setup()
           min_kb);
 
     DEBUG_PRINT("Done with init\n");
-    // debug_to_serial = false;
+    debug_to_serial = false;
 }
 
 /*

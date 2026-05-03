@@ -195,6 +195,35 @@ void WiFiManager::setup()
     DEBUG("NET INIT DONE\n");
 }
 
+static size_t getFrameSize(const uint8_t *buf, size_t available)
+{
+    if (available < 2) return 0;
+
+    uint8_t cmd = buf[0];
+
+    // ---- GVRET basic parsing ----
+    // Adjust if your protocol differs
+
+    switch (cmd)
+    {
+        // CAN frame (most common)
+        case 0xF1: // example: standard CAN frame
+        case 0xF2: // example: extended CAN frame
+        {
+            if (available < 2) return 0;
+            uint8_t len = buf[1];
+            return len + 2; // header + payload
+        }
+
+        default:
+            // fallback: treat as minimal frame
+            if (available >= 2)
+                return buf[1] + 2;
+
+            return 0;
+    }
+}
+
 void WiFiManager::loop()
 {
     if (settings.enableBT != 0)
@@ -323,214 +352,12 @@ void WiFiManager::loop()
     ArduinoOTA.handle();
 }
 
-// void WiFiManager::sendBufferedData()
-// {
-//     if (settings.enableBT != 0)
-//         return;
-
-//     for (int i = 0; i < MAX_CLIENTS; i++)
-//     {
-//         if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
-//         {
-//             size_t wifiLength = wifiGVRET.numAvailableBytes();
-//             uint8_t *buff = wifiGVRET.getBufferedBytes();
-
-//             size_t sent = 0;
-
-//             if (wifiLength > 0)
-//             {
-//                 sent = SysSettings.clientNodes[i].write(buff, wifiLength);
-//             }
-
-//             // if (sent < wifiLength)
-//             // {
-//             //     DEBUG(
-//             //         "[WARN][wifi] partial send client:%d sent:%u/%u\n",
-//             //         i,
-//             //         (unsigned)sent,
-//             //         (unsigned)wifiLength);
-//             // }
-
-//             if (sent == wifiLength)
-//                 wifiGVRET.clearBufferedBytes();
-//         }
-//     }
-// }
-
-// void WiFiManager::sendBufferedData()
-// {
-//     if (settings.enableBT != 0)
-//         return;
-
-//     // ===== GLOBAL RATE-LIMITED STATS (ADD HERE) =====
-//     static uint32_t lastLog = 0;
-//     if (millis() - lastLog > 300)
-//     {
-//         lastLog = millis();
-
-//         DEBUG(
-//             "[STAT] free:%u min:%u largest:%u buf:%u\n",
-//             ESP.getFreeHeap(),
-//             heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
-//             heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-//             wifiGVRET.numAvailableBytes());
-//     }
-
-//     for (int i = 0; i < MAX_CLIENTS; i++)
-//     {
-//         if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
-//         {
-//             // ===== HEAP BEFORE =====
-//             heap_snap_t before = heap_snap();
-
-//             size_t wifiLength = wifiGVRET.numAvailableBytes();
-//             uint8_t *buff = wifiGVRET.getBufferedBytes();
-
-//             size_t sent = 0;
-
-//             if (wifiLength > 0)
-//             {
-//                 sent = SysSettings.clientNodes[i].write(buff, wifiLength);
-//             }
-
-//             // // ===== HEAP AFTER =====
-//             // heap_snap_t after = heap_snap();
-
-//             // if (after.free8 + 1024 < before.free8)
-//             // {
-//             //     heap_print("wifi_before", before);
-//             //     heap_print("wifi_after ", after);
-
-//             //     DEBUG(
-//             //         "[HEAP][wifi] client:%d req:%u sent:%u\n",
-//             //         i,
-//             //         (unsigned)wifiLength,
-//             //         (unsigned)sent);
-//             // }
-
-//             if (sent < wifiLength)
-//             {
-//                 DEBUG(
-//                     "[WARN][wifi] partial send client:%d sent:%u/%u\n",
-//                     i,
-//                     (unsigned)sent,
-//                     (unsigned)wifiLength);
-//             }
-
-//             if (sent == wifiLength)
-//                 wifiGVRET.clearBufferedBytes();
-//         }
-//     }
-// }
-
-
-// =================================
-
-
-// static const size_t WIFI_CHUNK = 1024;
-// static const size_t WIFI_BATCH = 4096;
-
-// static uint8_t batchBuf[WIFI_BATCH];
-// static size_t batchLen = 0;
-
-// void WiFiManager::sendBufferedData()
-// {
-//     if (settings.enableBT != 0)
-//         return;
-
-//     // ===== periodic stats =====
-//     static uint32_t lastLog = 0;
-//     if (millis() - lastLog > 300)
-//     {
-//         lastLog = millis();
-
-//         DEBUG("[STAT] free:%u min:%u largest:%u buf:%u\n",
-//               ESP.getFreeHeap(),
-//               heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
-//               heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-//               wifiGVRET.numAvailableBytes());
-//     }
-
-//     for (int i = 0; i < MAX_CLIENTS; i++)
-//     {
-//         if (!(SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected()))
-//             continue;
-
-//         // ===== heap safety =====
-//         if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 20000)
-//             break;
-
-//         // ===== STEP 1: fill batch (NO CONSUME HERE) =====
-//         size_t available = wifiGVRET.numAvailableBytes();
-
-//         while (available > 0 && batchLen < WIFI_BATCH)
-//         {
-//             size_t take = available;
-
-//             if (take > WIFI_CHUNK)
-//                 take = WIFI_CHUNK;
-
-//             if (take > (WIFI_BATCH - batchLen))
-//                 take = (WIFI_BATCH - batchLen);
-
-//             uint8_t *src = wifiGVRET.getBufferedBytes();
-
-//             memcpy(batchBuf + batchLen, src, take);
-//             batchLen += take;
-
-//             // DO NOT consume yet
-
-//             available = wifiGVRET.numAvailableBytes();
-
-//             // IMPORTANT: prevent infinite loop since we didn't consume
-//             break;
-//         }
-
-//         // ===== STEP 2: send =====
-//         if (batchLen > 0)
-//         {
-//             size_t sent = SysSettings.clientNodes[i].write(batchBuf, batchLen);
-
-//             if (sent == batchLen)
-//             {
-//                 // full success
-//                 wifiGVRET.consume(sent);
-//                 batchLen = 0;
-//             }
-//             else if (sent > 0)
-//             {
-//                 // partial send
-//                 wifiGVRET.consume(sent);
-
-//                 memmove(batchBuf, batchBuf + sent, batchLen - sent);
-//                 batchLen -= sent;
-
-//                 DEBUG("[WARN][wifi] partial send %u/%u\n",
-//                       (unsigned)sent, (unsigned)(sent + batchLen));
-//             }
-//             else
-//             {
-//                 // sent == 0 → TCP full, retry later
-//                 DEBUG("[WARN][wifi] send stalled (0/%u)\n",
-//                       (unsigned)batchLen);
-//             }
-
-//             taskYIELD();
-//         }
-//     }
-// }
-
-
-static const size_t WIFI_CHUNK = 1024;
 static const size_t WIFI_BATCH = 4096;
-
-// how long to accumulate before sending (microseconds)
-static const uint32_t WIFI_BATCH_TIME_US = 1000; // 1 ms
+static const uint32_t WIFI_BATCH_TIME_US = 1000;
 
 static uint8_t batchBuf[WIFI_BATCH];
 static size_t batchLen = 0;
-
-static uint32_t lastSendUs = 0;
+static uint32_t batchStartUs = 0;
 
 void WiFiManager::sendBufferedData()
 {
@@ -551,18 +378,6 @@ void WiFiManager::sendBufferedData()
 
     uint32_t nowUs = micros();
 
-    // wait batching window
-    if ((nowUs - lastSendUs) < WIFI_BATCH_TIME_US)
-        return;
-
-    lastSendUs = nowUs;
-
-    size_t len = wifiGVRET.numAvailableBytes();
-    if (len == 0)
-        return;
-
-    uint8_t *buf = wifiGVRET.getBufferedBytes();
-
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
         if (!(SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected()))
@@ -571,24 +386,64 @@ void WiFiManager::sendBufferedData()
         if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 20000)
             break;
 
-        size_t sent = SysSettings.clientNodes[i].write(buf, len);
+        size_t available = wifiGVRET.numAvailableBytes();
+        uint8_t *src = wifiGVRET.getBufferedBytes();
 
-        if (sent == len)
-        {
-            wifiGVRET.clearBufferedBytes();
-        }
-        else if (sent > 0)
-        {
-            // partial send → shift safely
-            memmove(buf, buf + sent, len - sent);
-            wifiGVRET.consume(sent);
+        // ===== START BATCH WINDOW =====
+        if (batchLen == 0)
+            batchStartUs = nowUs;
 
-            DEBUG("[WARN][wifi] partial send %u/%u\n",
-                  (unsigned)sent, (unsigned)len);
-        }
-        else
+        // ===== BUILD BATCH USING FULL FRAMES =====
+        size_t offset = 0;
+
+        while (available > 0)
         {
-            DEBUG("[WARN][wifi] stalled send\n");
+            size_t frameSize = getFrameSize(src + offset, available);
+
+            if (frameSize == 0 || frameSize > available)
+                break; // incomplete frame → wait
+
+            if ((batchLen + frameSize) > WIFI_BATCH)
+                break; // no more space
+
+            memcpy(batchBuf + batchLen, src + offset, frameSize);
+            batchLen += frameSize;
+
+            offset += frameSize;
+            available -= frameSize;
+        }
+
+        // ===== CONSUME ONLY WHAT WE PACKED =====
+        if (offset > 0)
+            wifiGVRET.consume(offset);
+
+        // ===== SEND CONDITIONS =====
+        bool timeExpired = (nowUs - batchStartUs) >= WIFI_BATCH_TIME_US;
+        bool full = (batchLen >= WIFI_BATCH);
+
+        if (batchLen > 0 && (timeExpired || full))
+        {
+            size_t sent = SysSettings.clientNodes[i].write(batchBuf, batchLen);
+
+            if (sent == batchLen)
+            {
+                batchLen = 0;
+            }
+            else if (sent > 0)
+            {
+                memmove(batchBuf, batchBuf + sent, batchLen - sent);
+                batchLen -= sent;
+
+                DEBUG("[WARN][wifi] partial send %u/%u\n",
+                      (unsigned)sent, (unsigned)(sent + batchLen));
+            }
+            else
+            {
+                DEBUG("[WARN][wifi] stalled send (%u bytes pending)\n",
+                      (unsigned)batchLen);
+            }
+
+            taskYIELD();
         }
     }
 }

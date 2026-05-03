@@ -138,3 +138,17 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
     }
 }
 
+void CommBuffer::consume(size_t n)
+{
+    if (n == 0) return;
+
+    if (n >= transmitBufferLength)
+    {
+        transmitBufferLength = 0;
+        return;
+    }
+
+    // shift remaining bytes to front
+    memmove(transmitBuffer, transmitBuffer + n, transmitBufferLength - n);
+    transmitBufferLength -= n;
+}

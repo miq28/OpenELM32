@@ -16,6 +16,7 @@ public:
     void sendByteToBuffer(uint8_t byt);
     void sendString(String str);
     void sendCharString(char *str);
+    void consume(size_t n);
 
 protected:
     byte transmitBuffer[WIFI_BUFF_SIZE];

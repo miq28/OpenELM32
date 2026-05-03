@@ -82,40 +82,15 @@ void CANManager::setup()
             canBuses[i]->disable();
         }
     }
-
-    for (int j = 0; j < NUM_BUSES; j++)
-    {
-        busLoad[j].bitsPerQuarter = settings.canSettings[j].nomSpeed / 4;
-        busLoad[j].bitsSoFar = 0;
-        busLoad[j].busloadPercentage = 0;
-        if (busLoad[j].bitsPerQuarter == 0) busLoad[j].bitsPerQuarter = 125000;
-    }
-
-    busLoadTimer = millis();
 }
 
-void CANManager::addBits(int offset, CAN_FRAME &frame)
-{
-    if (offset < 0) return;
-    if (offset >= NUM_BUSES) return;
-    busLoad[offset].bitsSoFar += 41 + (frame.length * 9);
-    if (frame.extended) busLoad[offset].bitsSoFar += 18;
-}
 
-void CANManager::addBits(int offset, CAN_FRAME_FD &frame)
-{
-    if (offset < 0) return;
-    if (offset >= NUM_BUSES) return;
-    busLoad[offset].bitsSoFar += 41 + (frame.length * 9);
-    if (frame.extended) busLoad[offset].bitsSoFar += 18;
-}
 
 void CANManager::sendFrame(CAN_COMMON *bus, CAN_FRAME &frame)
 {
     int whichBus = 0;
     for (int i = 0; i < NUM_BUSES; i++) if (canBuses[i] == bus) whichBus = i;
     bus->sendFrame(frame);
-    addBits(whichBus, frame);
 }
 
 void CANManager::sendFrame(CAN_COMMON *bus, CAN_FRAME_FD &frame)
@@ -123,7 +98,6 @@ void CANManager::sendFrame(CAN_COMMON *bus, CAN_FRAME_FD &frame)
     int whichBus = 0;
     for (int i = 0; i < NUM_BUSES; i++) if (canBuses[i] == bus) whichBus = i;
     bus->sendFrameFD(frame);
-    addBits(whichBus, frame);
 }
 
 
@@ -162,19 +136,6 @@ void CANManager::loop()
     size_t serialLength = serialGVRET.numAvailableBytes();
     size_t maxLength = (wifiLength > serialLength) ? wifiLength : serialLength;
 
-    if (millis() > (busLoadTimer + 250)) {
-        busLoadTimer = millis();
-        busLoad[0].busloadPercentage = ((busLoad[0].busloadPercentage * 3) + (((busLoad[0].bitsSoFar * 1000) / busLoad[0].bitsPerQuarter) / 10)) / 4;
-        //Force busload percentage to be at least 1% if any traffic exists at all. This forces the LED to light up for any traffic.
-        if (busLoad[0].busloadPercentage == 0 && busLoad[0].bitsSoFar > 0) busLoad[0].busloadPercentage = 1;
-        busLoad[0].bitsPerQuarter = settings.canSettings[0].nomSpeed / 4;
-        busLoad[0].bitsSoFar = 0;
-        if(busLoad[0].busloadPercentage > busLoad[1].busloadPercentage){
-            //updateBusloadLED(busLoad[0].busloadPercentage);
-        } else{
-            //updateBusloadLED(busLoad[1].busloadPercentage);
-        }
-    }
 
     for (int i = 0; i < SysSettings.numBuses; i++)
     {
@@ -185,13 +146,11 @@ void CANManager::loop()
             if (settings.canSettings[i].fdMode == 0)
             {
                 canBuses[i]->read(incoming);
-                addBits(i, incoming);
                 displayFrame(incoming, i);
             }
             else
             {
                 canBuses[i]->readFD(inFD);
-                addBits(i, inFD);
                 displayFrame(inFD, i);
             }
             

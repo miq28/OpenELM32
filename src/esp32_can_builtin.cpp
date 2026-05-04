@@ -1,0 +1,4 @@
+#include "esp32_can_builtin.h"
+
+ESP32CAN CAN0(GPIO_NUM_16, GPIO_NUM_17, 0);
+ESP32CAN CAN1(GPIO_NUM_18, GPIO_NUM_19, 1);

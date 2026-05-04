@@ -488,15 +488,15 @@ void setup()
 
     // elmEmulator.setup();
 
-    xTaskCreatePinnedToCore(
-        statsTask,
-        "statsTask",
-        4096,
-        nullptr,
-        1,
-        nullptr,
-        0 // run on Core 0 (keeps CAN on Core 1 cleaner)
-    );
+    // xTaskCreatePinnedToCore(
+    //     statsTask,
+    //     "statsTask",
+    //     4096,
+    //     nullptr,
+    //     1,
+    //     nullptr,
+    //     0 // run on Core 0 (keeps CAN on Core 1 cleaner)
+    // );
 
     heap_kb = esp_get_free_heap_size() / 1024.0f;
     min_kb = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT) / 1024.0f;

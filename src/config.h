@@ -35,7 +35,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <esp32_can.h>
 // #include <esp32_mcp2517fd.h>
 #include <Preferences.h>
-
+#include "esp32_can_builtin.h"
 
 #if defined(SPARKLE_IOT_XH_S3E_N16R8)
 #define CAN_TX GPIO_NUM_7

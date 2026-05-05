@@ -1,5 +1,8 @@
 #include "esp32_can.h"
 
+ESP32CAN CAN0(GPIO_NUM_16, GPIO_NUM_17, 0);
+ESP32CAN CAN1(GPIO_NUM_18, GPIO_NUM_19, 1);
+
 ESP32CAN::ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t)
 {
     g_config = TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NORMAL);

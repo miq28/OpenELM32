@@ -4,6 +4,14 @@
 #include <Arduino.h>
 #include <cstring>
 
+class ESP32CAN;
+
+extern ESP32CAN CAN0;
+extern ESP32CAN CAN1;
+
+#define Can0 CAN0
+#define Can1 CAN1
+
 // ================= FRAME TYPES =================
 typedef union
 {

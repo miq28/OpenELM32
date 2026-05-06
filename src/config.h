@@ -130,7 +130,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 
-
+extern volatile uint32_t wifiBytesSent;
 
 
 

@@ -251,12 +251,24 @@ void CANManager::loop()
         uint32_t fpsOut =
             (dt > 0) ? ((forwardedFrames * 1000ul) / dt) : 0;
 
-        DEBUG("[CAN STAT] in:%lu fps out:%lu fps ovf:%lu/s wifi:%u heap:%u\n",
+        uint32_t wifiKBs = wifiBytesSent / 1024;
+        wifiBytesSent = 0;
+
+        uint32_t uptimeSec = millis() / 1000;
+        uint32_t hrs = uptimeSec / 3600;
+        uint32_t mins = (uptimeSec % 3600) / 60;
+        uint32_t secs = uptimeSec % 60;
+
+        DEBUG("[CAN STAT] in:%lu fps out:%lu fps rxqovf:%lu/s wifi:%u tx:%lu KB/s heap:%u up:%02lu:%02lu:%02lu\n",
               fpsIn,
               fpsOut,
               rxFullCount,
               wifiGVRET.numAvailableBytes(),
-              ESP.getFreeHeap());
+              wifiKBs,
+              ESP.getFreeHeap(),
+              hrs,
+              mins,
+              secs);
 
         rxFrames = 0;
         forwardedFrames = 0;

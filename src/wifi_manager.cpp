@@ -13,6 +13,8 @@
 #define TELNET_PORT 23
 #define OBD_PORT 35000
 
+volatile uint32_t wifiBytesSent = 0;
+
 static IPAddress broadcastAddr(255, 255, 255, 255);
 
 // constructor must be here
@@ -408,6 +410,8 @@ void WiFiManager::sendBufferedData()
 
         if (sent > 0)
         {
+            wifiBytesSent += sent;
+            
             wifiGVRET.consume(sent);
         }
         else

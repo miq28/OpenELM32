@@ -4,6 +4,15 @@
 #include <Arduino.h>
 #include <cstring>
 
+typedef struct
+{
+    uint32_t timestamp;
+    uint32_t alerts;
+    uint16_t rx_err;
+    uint16_t tx_err;
+    uint8_t state;
+} CAN_EVENT;
+
 class ESP32CAN;
 
 extern ESP32CAN CAN0;
@@ -40,6 +49,10 @@ typedef union
     uint8_t uint8[64];
     uint8_t bytes[64];
 } BytesUnionFD;
+
+// add near top or before class
+void alertsToText(uint32_t alerts, char* out, size_t len);
+const char* stateToStr(uint8_t s);
 
 class CAN_FRAME
 {
@@ -102,6 +115,10 @@ public:
     virtual bool supportsFDMode() { return false; }
 
     virtual void setDebuggingMode(bool) {}
+
+    //====== EVENTS ======
+    void pollEvents();
+    bool popEvent(CAN_EVENT &evt);
 };
 
 // ================= ESP32CAN CLASS =================
@@ -116,7 +133,7 @@ public:
     void enable() override {}
     void disable() override;
 
-    bool sendFrame(CAN_FRAME& frame) override;
+    bool sendFrame(CAN_FRAME &frame) override;
 
     uint32_t get_rx_buff(CAN_FRAME &frame) override;
     uint16_t available() override;
@@ -135,8 +152,20 @@ public:
 
     void setDebuggingMode(bool) override {}
 
+    // ==== EVENTS ======
+    void pollEvents();
+    bool popEvent(CAN_EVENT &evt);
+
 private:
     twai_general_config_t g_config;
     twai_timing_config_t t_config;
     twai_filter_config_t f_config;
+
+    // ==== EVENTS ======
+    static const uint16_t EVENT_BUFFER_SIZE = 64;
+    CAN_EVENT eventBuffer[EVENT_BUFFER_SIZE];
+    volatile uint16_t eventHead = 0;
+    volatile uint16_t eventTail = 0;
+
+    inline void pushEvent(const CAN_EVENT &evt);
 };

@@ -183,40 +183,54 @@ void CANManager::loop()
         }
 
         // ===== FRAME RX =====
-        while ((canBuses[i]->available() > 0) &&
-               (maxLength < (WIFI_BUFF_SIZE - 80)))
+        while (maxLength < (WIFI_BUFF_SIZE - 80))
         {
+            bool gotFrame = false;
+
             if (settings.canSettings[i].fdMode == 0)
             {
-                canBuses[i]->read(incoming);
+                // direct non-blocking read
+                if (canBuses[i]->read(incoming))
+                {
+                    gotFrame = true;
 
-                rxFrames++;
+                    rxFrames++;
 
-                displayFrame(incoming, i);
+                    displayFrame(incoming, i);
 
-                forwardedFrames++;
+                    forwardedFrames++;
+
+                    if (((incoming.id > 0x7DF) &&
+                         (incoming.id < 0x7F0)) ||
+                        elmEmulator.getMonitorMode())
+                    {
+                        if (i == settings.sendingBus)
+                            elmEmulator.processCANReply(incoming);
+                    }
+                }
             }
             else
             {
-                canBuses[i]->readFD(inFD);
+                if (canBuses[i]->readFD(inFD))
+                {
+                    gotFrame = true;
 
-                rxFrames++;
+                    rxFrames++;
 
-                displayFrame(inFD, i);
+                    displayFrame(inFD, i);
 
-                forwardedFrames++;
+                    forwardedFrames++;
+                }
             }
 
-            if (((incoming.id > 0x7DF) &&
-                 (incoming.id < 0x7F0)) ||
-                elmEmulator.getMonitorMode())
-            {
-                if (i == settings.sendingBus)
-                    elmEmulator.processCANReply(incoming);
-            }
+            // no more frames available
+            if (!gotFrame)
+                break;
 
+            // refresh output pressure
             wifiLength = wifiGVRET.numAvailableBytes();
             serialLength = serialGVRET.numAvailableBytes();
+
             maxLength = (wifiLength > serialLength)
                             ? wifiLength
                             : serialLength;

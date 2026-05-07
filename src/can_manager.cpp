@@ -198,8 +198,6 @@ void CANManager::loop()
                 {
                     gotFrame = true;
 
-                    rgbCanRxActivity();
-
                     rxFrames++;
 
                     displayFrame(incoming, i);
@@ -220,8 +218,6 @@ void CANManager::loop()
                 if (canBuses[i]->readFD(inFD))
                 {
                     gotFrame = true;
-
-                    rgbCanRxActivity();
 
                     rxFrames++;
 

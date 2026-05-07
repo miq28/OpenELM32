@@ -164,6 +164,8 @@ uint32_t ESP32CAN::get_rx_buff(CAN_FRAME &frame)
 
     if (twai_receive(&msg, 0) == ESP_OK)
     {
+        rgbCanRxActivity();
+        
         frame.id = msg.identifier;
         frame.length = msg.data_length_code;
         frame.extended = msg.extd;

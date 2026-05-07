@@ -31,6 +31,21 @@
 // #define TWAI_ALERT_NONE                     0x00000000  /**< Bit mask to disable all alerts during configuration */
 // #define TWAI_ALERT_AND_LOG                  0x00020000  /**< Bit mask to enable alerts to also be logged when they occur. Note that logging from the ISR is disabled if CONFIG_TWAI_ISR_IN_IRAM is enabled (see docs). */
 
+static bool hasWifiClientConnected()
+{
+    for (int c = 0; c < MAX_CLIENTS; c++)
+    {
+        if (SysSettings.clientNodes[c] &&
+            SysSettings.clientNodes[c].connected())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 CANManager::CANManager()
 {
     sendToConsole = true;
@@ -111,10 +126,14 @@ void CANManager::displayFrame(CAN_FRAME &frame, int whichBus)
     }
     else
     {
-        if (SysSettings.isWifiActive)
+        if (hasWifiClientConnected())
+        {
             wifiGVRET.sendFrameToBuffer(frame, whichBus);
+        }
         else if (sendToConsole)
+        {
             serialGVRET.sendFrameToBuffer(frame, whichBus);
+        }
     }
 }
 
@@ -126,10 +145,14 @@ void CANManager::displayFrame(CAN_FRAME_FD &frame, int whichBus)
     }
     else
     {
-        if (SysSettings.isWifiActive)
+        if (hasWifiClientConnected())
+        {
             wifiGVRET.sendFrameToBuffer(frame, whichBus);
-        else
+        }
+        else if (sendToConsole)
+        {
             serialGVRET.sendFrameToBuffer(frame, whichBus);
+        }
     }
 }
 
@@ -144,9 +167,22 @@ void CANManager::loop()
     static uint32_t rxFullCount = 0;
     static uint32_t lastStats = 0;
 
-    size_t wifiLength = wifiGVRET.numAvailableBytes();
-    size_t serialLength = serialGVRET.numAvailableBytes();
-    size_t maxLength = (wifiLength > serialLength) ? wifiLength : serialLength;
+    bool wifiClientConnected = hasWifiClientConnected();
+
+    size_t wifiLength =
+        wifiClientConnected
+            ? wifiGVRET.numAvailableBytes()
+            : 0;
+
+    size_t serialLength =
+        sendToConsole
+            ? serialGVRET.numAvailableBytes()
+            : 0;
+
+    size_t maxLength =
+        (wifiLength > serialLength)
+            ? wifiLength
+            : serialLength;
 
     for (int i = 0; i < SysSettings.numBuses; i++)
     {
@@ -232,12 +268,22 @@ void CANManager::loop()
                 break;
 
             // refresh output pressure
-            wifiLength = wifiGVRET.numAvailableBytes();
-            serialLength = serialGVRET.numAvailableBytes();
+            wifiClientConnected = hasWifiClientConnected();
 
-            maxLength = (wifiLength > serialLength)
-                            ? wifiLength
-                            : serialLength;
+            wifiLength =
+                wifiClientConnected
+                    ? wifiGVRET.numAvailableBytes()
+                    : 0;
+
+            serialLength =
+                sendToConsole
+                    ? serialGVRET.numAvailableBytes()
+                    : 0;
+
+            maxLength =
+                (wifiLength > serialLength)
+                    ? wifiLength
+                    : serialLength;
         }
     }
 

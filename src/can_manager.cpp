@@ -45,6 +45,23 @@ static bool hasWifiClientConnected()
     return false;
 }
 
+static inline size_t getOutputBacklog(bool sendToConsole)
+{
+    size_t wifiLength =
+        hasWifiClientConnected()
+            ? wifiGVRET.numAvailableBytes()
+            : 0;
+
+    size_t serialLength =
+        sendToConsole
+            ? serialGVRET.numAvailableBytes()
+            : 0;
+
+    return (wifiLength > serialLength)
+               ? wifiLength
+               : serialLength;
+}
+
 
 CANManager::CANManager()
 {
@@ -159,22 +176,7 @@ void CANManager::loop()
     static uint32_t rxFullCount = 0;
     static uint32_t lastStats = 0;
 
-    bool wifiClientConnected = hasWifiClientConnected();
-
-    size_t wifiLength =
-        wifiClientConnected
-            ? wifiGVRET.numAvailableBytes()
-            : 0;
-
-    size_t serialLength =
-        sendToConsole
-            ? serialGVRET.numAvailableBytes()
-            : 0;
-
-    size_t maxLength =
-        (wifiLength > serialLength)
-            ? wifiLength
-            : serialLength;
+    size_t maxLength = getOutputBacklog(sendToConsole);
 
     for (int i = 0; i < SysSettings.numBuses; i++)
     {
@@ -260,22 +262,7 @@ void CANManager::loop()
                 break;
 
             // refresh output pressure
-            wifiClientConnected = hasWifiClientConnected();
-
-            wifiLength =
-                wifiClientConnected
-                    ? wifiGVRET.numAvailableBytes()
-                    : 0;
-
-            serialLength =
-                sendToConsole
-                    ? serialGVRET.numAvailableBytes()
-                    : 0;
-
-            maxLength =
-                (wifiLength > serialLength)
-                    ? wifiLength
-                    : serialLength;
+            maxLength = getOutputBacklog(sendToConsole);
         }
     }
 

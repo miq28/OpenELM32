@@ -118,7 +118,7 @@ class ESP32CAN : public CAN_COMMON
 {
 public:
     using CAN_COMMON::begin;
-    
+
     ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t busNum = 0);
 
     uint32_t begin(uint32_t baudrate) override;
@@ -155,6 +155,8 @@ private:
     twai_general_config_t g_config;
     twai_timing_config_t t_config;
     twai_filter_config_t f_config;
+
+    uint32_t currentBaudrate = 500000;
 
     // ==== EVENTS ======
     static const uint16_t EVENT_BUFFER_SIZE = 64;

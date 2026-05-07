@@ -158,7 +158,7 @@ bool ESP32CAN::sendFrame(CAN_FRAME &frame)
     return ok;
 }
 
-uint32_t ESP32CAN::get_rx_buff(CAN_FRAME &frame)
+uint32_t ESP32CAN::read(CAN_FRAME &frame)
 {
     twai_message_t msg;
 

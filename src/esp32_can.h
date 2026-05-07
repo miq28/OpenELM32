@@ -68,6 +68,8 @@ public:
 class CAN_COMMON
 {
 public:
+    virtual ~CAN_COMMON() = default;
+
     virtual uint32_t begin(uint32_t baudrate) = 0;
 
     virtual uint32_t begin(uint32_t baudrate, uint8_t)
@@ -75,49 +77,58 @@ public:
         return begin(baudrate);
     }
 
-    virtual uint32_t beginFD(uint32_t, uint32_t) { return 0; }
+    virtual uint32_t beginFD(uint32_t, uint32_t)
+    {
+        return 0;
+    }
 
     virtual void enable() = 0;
     virtual void disable() = 0;
 
     virtual bool sendFrame(CAN_FRAME &) = 0;
-    virtual bool sendFrameFD(CAN_FRAME_FD &) { return false; }
+
+    virtual bool sendFrameFD(CAN_FRAME_FD &)
+    {
+        return false;
+    }
 
     virtual uint16_t available() = 0;
-    virtual uint32_t get_rx_buff(CAN_FRAME &) = 0;
 
-    virtual uint32_t get_rx_buffFD(CAN_FRAME_FD &) { return 0; }
+    virtual uint32_t read(CAN_FRAME &) = 0;
 
-    inline uint32_t read(CAN_FRAME &msg) { return get_rx_buff(msg); }
-    inline uint32_t readFD(CAN_FRAME_FD &msg) { return get_rx_buffFD(msg); }
+    virtual uint32_t readFD(CAN_FRAME_FD &)
+    {
+        return 0;
+    }
 
     virtual void watchFor() {}
+
     virtual void setListenOnlyMode(bool) {}
 
-    virtual bool supportsFDMode() { return false; }
+    virtual bool supportsFDMode()
+    {
+        return false;
+    }
 
     virtual void setDebuggingMode(bool) {}
-
-    //====== EVENTS ======
-    void pollEvents();
-    bool popEvent(CAN_EVENT &evt);
 };
 
 // ================= ESP32CAN CLASS =================
 class ESP32CAN : public CAN_COMMON
 {
 public:
+    using CAN_COMMON::begin;
+    
     ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t busNum = 0);
 
     uint32_t begin(uint32_t baudrate) override;
-    uint32_t begin(uint32_t baudrate, uint8_t) { return begin(baudrate); }
 
     void enable() override {}
     void disable() override;
 
     bool sendFrame(CAN_FRAME &frame) override;
 
-    uint32_t get_rx_buff(CAN_FRAME &frame) override;
+    uint32_t read(CAN_FRAME &frame) override;
     uint16_t available() override;
 
     void setListenOnlyMode(bool state) override;

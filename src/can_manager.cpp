@@ -102,19 +102,11 @@ void CANManager::setup()
 
 void CANManager::sendFrame(CAN_COMMON *bus, CAN_FRAME &frame)
 {
-    int whichBus = 0;
-    for (int i = 0; i < NUM_BUSES; i++)
-        if (canBuses[i] == bus)
-            whichBus = i;
     bus->sendFrame(frame);
 }
 
 void CANManager::sendFrame(CAN_COMMON *bus, CAN_FRAME_FD &frame)
 {
-    int whichBus = 0;
-    for (int i = 0; i < NUM_BUSES; i++)
-        if (canBuses[i] == bus)
-            whichBus = i;
     bus->sendFrameFD(frame);
 }
 

@@ -51,8 +51,8 @@ typedef union
 } BytesUnionFD;
 
 // add near top or before class
-void alertsToText(uint32_t alerts, char* out, size_t len);
-const char* stateToStr(uint8_t s);
+void alertsToText(uint32_t alerts, char *out, size_t len);
+const char *stateToStr(uint8_t s);
 
 class CAN_FRAME
 {
@@ -155,6 +155,8 @@ public:
     // ==== EVENTS ======
     void pollEvents();
     bool popEvent(CAN_EVENT &evt);
+
+    bool isInErrorState();
 
 private:
     twai_general_config_t g_config;

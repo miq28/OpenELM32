@@ -7,6 +7,7 @@
 #include "lawicel.h"
 #include "ELM327_Emulator.h"
 #include "debug.h"
+#include "rgb_status.h"
 
 // twai alerts copied here for ease of access. Look up alerts right here:
 // #define TWAI_ALERT_TX_IDLE                  0x00000001  /**< Alert(1): No more messages to transmit */
@@ -160,6 +161,9 @@ void CANManager::loop()
         // ===== ALWAYS POLL EVENTS =====
         esp->pollEvents();
 
+        // ===== RGB ERROR STATE =====
+        rgbCanError(esp->isInErrorState());
+
         // ===== EVENT HANDLING =====
         CAN_EVENT evt;
         while (esp->popEvent(evt))
@@ -194,6 +198,8 @@ void CANManager::loop()
                 {
                     gotFrame = true;
 
+                    rgbCanRxActivity();
+
                     rxFrames++;
 
                     displayFrame(incoming, i);
@@ -214,6 +220,8 @@ void CANManager::loop()
                 if (canBuses[i]->readFD(inFD))
                 {
                     gotFrame = true;
+
+                    rgbCanRxActivity();
 
                     rxFrames++;
 

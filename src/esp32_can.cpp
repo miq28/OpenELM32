@@ -1,51 +1,76 @@
 #include "esp32_can.h"
+#include "rgb_status.h"
 
-const char* alertToStr(uint32_t a)
+const char *alertToStr(uint32_t a)
 {
     switch (a)
     {
-        case TWAI_ALERT_TX_IDLE: return "TX_IDLE";
-        case TWAI_ALERT_TX_SUCCESS: return "TX_SUCCESS";
-        case TWAI_ALERT_RX_DATA: return "RX_DATA";
-        case TWAI_ALERT_BELOW_ERR_WARN: return "BELOW_ERR_WARN";
-        case TWAI_ALERT_ERR_ACTIVE: return "ERR_ACTIVE";
-        case TWAI_ALERT_RECOVERY_IN_PROGRESS: return "RECOVERY_IN_PROGRESS";
-        case TWAI_ALERT_BUS_RECOVERED: return "BUS_RECOVERED";
-        case TWAI_ALERT_ARB_LOST: return "ARB_LOST";
-        case TWAI_ALERT_ABOVE_ERR_WARN: return "ABOVE_ERR_WARN";
-        case TWAI_ALERT_BUS_ERROR: return "BUS_ERROR";
-        case TWAI_ALERT_TX_FAILED: return "TX_FAILED";
-        case TWAI_ALERT_RX_QUEUE_FULL: return "RX_QUEUE_FULL";
-        case TWAI_ALERT_ERR_PASS: return "ERR_PASSIVE";
-        case TWAI_ALERT_BUS_OFF: return "BUS_OFF";
-        case TWAI_ALERT_RX_FIFO_OVERRUN: return "RX_FIFO_OVERRUN";
-        case TWAI_ALERT_TX_RETRIED: return "TX_RETRIED";
-        case TWAI_ALERT_PERIPH_RESET: return "PERIPH_RESET";
-        default: return "UNKNOWN";
+    case TWAI_ALERT_TX_IDLE:
+        return "TX_IDLE";
+    case TWAI_ALERT_TX_SUCCESS:
+        return "TX_SUCCESS";
+    case TWAI_ALERT_RX_DATA:
+        return "RX_DATA";
+    case TWAI_ALERT_BELOW_ERR_WARN:
+        return "BELOW_ERR_WARN";
+    case TWAI_ALERT_ERR_ACTIVE:
+        return "ERR_ACTIVE";
+    case TWAI_ALERT_RECOVERY_IN_PROGRESS:
+        return "RECOVERY_IN_PROGRESS";
+    case TWAI_ALERT_BUS_RECOVERED:
+        return "BUS_RECOVERED";
+    case TWAI_ALERT_ARB_LOST:
+        return "ARB_LOST";
+    case TWAI_ALERT_ABOVE_ERR_WARN:
+        return "ABOVE_ERR_WARN";
+    case TWAI_ALERT_BUS_ERROR:
+        return "BUS_ERROR";
+    case TWAI_ALERT_TX_FAILED:
+        return "TX_FAILED";
+    case TWAI_ALERT_RX_QUEUE_FULL:
+        return "RX_QUEUE_FULL";
+    case TWAI_ALERT_ERR_PASS:
+        return "ERR_PASSIVE";
+    case TWAI_ALERT_BUS_OFF:
+        return "BUS_OFF";
+    case TWAI_ALERT_RX_FIFO_OVERRUN:
+        return "RX_FIFO_OVERRUN";
+    case TWAI_ALERT_TX_RETRIED:
+        return "TX_RETRIED";
+    case TWAI_ALERT_PERIPH_RESET:
+        return "PERIPH_RESET";
+    default:
+        return "UNKNOWN";
     }
 }
 
-const char* stateToStr(uint8_t s)
+const char *stateToStr(uint8_t s)
 {
     switch (s)
     {
-        case TWAI_STATE_STOPPED: return "STOPPED";
-        case TWAI_STATE_RUNNING: return "RUNNING";
-        case TWAI_STATE_BUS_OFF: return "BUS_OFF";
-        case TWAI_STATE_RECOVERING: return "RECOVERING";
-        default: return "?";
+    case TWAI_STATE_STOPPED:
+        return "STOPPED";
+    case TWAI_STATE_RUNNING:
+        return "RUNNING";
+    case TWAI_STATE_BUS_OFF:
+        return "BUS_OFF";
+    case TWAI_STATE_RECOVERING:
+        return "RECOVERING";
+    default:
+        return "?";
     }
 }
 
-void alertsToText(uint32_t alerts, char* out, size_t len)
+void alertsToText(uint32_t alerts, char *out, size_t len)
 {
     out[0] = 0;
 
-    #define ADD_FLAG(flag, name) \
-        if (alerts & flag) { \
-            strlcat(out, name, len); \
-            strlcat(out, "|", len); \
-        }
+#define ADD_FLAG(flag, name)     \
+    if (alerts & flag)           \
+    {                            \
+        strlcat(out, name, len); \
+        strlcat(out, "|", len);  \
+    }
 
     ADD_FLAG(TWAI_ALERT_BUS_ERROR, "BUS_ERROR");
     ADD_FLAG(TWAI_ALERT_TX_FAILED, "TX_FAILED");
@@ -55,11 +80,12 @@ void alertsToText(uint32_t alerts, char* out, size_t len)
     ADD_FLAG(TWAI_ALERT_BUS_RECOVERED, "RECOVERED");
     ADD_FLAG(TWAI_ALERT_RECOVERY_IN_PROGRESS, "RECOVERING");
 
-    #undef ADD_FLAG
+#undef ADD_FLAG
 
     // remove trailing '|'
     size_t l = strlen(out);
-    if (l > 0 && out[l - 1] == '|') out[l - 1] = 0;
+    if (l > 0 && out[l - 1] == '|')
+        out[l - 1] = 0;
 }
 
 ESP32CAN CAN0(GPIO_NUM_16, GPIO_NUM_17, 0);
@@ -122,7 +148,14 @@ bool ESP32CAN::sendFrame(CAN_FRAME &frame)
 
     memcpy(msg.data, frame.data.byte, frame.length);
 
-    return twai_transmit(&msg, pdMS_TO_TICKS(10)) == ESP_OK;
+    bool ok = (twai_transmit(&msg, pdMS_TO_TICKS(10)) == ESP_OK);
+
+    if (ok)
+    {
+        rgbCanTxActivity();
+    }
+
+    return ok;
 }
 
 uint32_t ESP32CAN::get_rx_buff(CAN_FRAME &frame)
@@ -148,6 +181,22 @@ uint16_t ESP32CAN::available()
     if (twai_get_status_info(&status) == ESP_OK)
         return status.msgs_to_rx;
     return 0;
+}
+
+bool ESP32CAN::isInErrorState()
+{
+    twai_status_info_t status;
+
+    if (twai_get_status_info(&status) != ESP_OK)
+        return false;
+
+    return (
+        status.state == TWAI_STATE_BUS_OFF ||
+        status.state == TWAI_STATE_RECOVERING ||
+        status.state == TWAI_STATE_STOPPED ||
+        status.tx_error_counter >= 128 ||
+        status.rx_error_counter >= 128
+    );
 }
 
 void ESP32CAN::setListenOnlyMode(bool state)

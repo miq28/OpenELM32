@@ -39,6 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "debug.h"
 #include "esp_flash.h"
 #include "Logger.h"
+#include "rgb_status.h"
 
 const char *resetReasonToStr(esp_reset_reason_t r)
 {
@@ -486,6 +487,8 @@ void setup()
     SysSettings.lawicelTimestamping = false;
     SysSettings.lawicelPollCounter = 0;
 
+    rgbStatusInit();
+
     // elmEmulator.setup();
 
     // xTaskCreatePinnedToCore(
@@ -577,6 +580,8 @@ void loop()
         in_byte = Serial.read();
         serialGVRET.processIncomingByte(in_byte);
     }
+
+    rgbStatusLoop();
 
     elmEmulator.loop();
 }

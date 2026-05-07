@@ -18,9 +18,6 @@ class ESP32CAN;
 extern ESP32CAN CAN0;
 extern ESP32CAN CAN1;
 
-#define Can0 CAN0
-#define Can1 CAN1
-
 // ================= FRAME TYPES =================
 typedef union
 {
@@ -28,26 +25,11 @@ typedef union
     uint32_t uint32[2];
     uint16_t uint16[4];
     uint8_t uint8[8];
-
-    uint64_t value;
-
-    struct
-    {
-        uint32_t low, high;
-    };
-    struct
-    {
-        uint16_t s0, s1, s2, s3;
-    };
-
-    uint8_t bytes[8];
-    uint8_t byte[8];
 } BytesUnion;
 
 typedef union
 {
     uint8_t uint8[64];
-    uint8_t bytes[64];
 } BytesUnionFD;
 
 // add near top or before class

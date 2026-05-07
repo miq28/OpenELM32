@@ -90,7 +90,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         if (outFrame.length < 0) outFrame.length = 0;
         if (outFrame.length > 8) outFrame.length = 8;
         for (int data = 0; data < outFrame.length; data++) {
-            outFrame.data.bytes[data] = Utility::parseHexString(buffer + 5 + (2 * data), 2);
+            outFrame.data.uint8[data] = Utility::parseHexString(buffer + 5 + (2 * data), 2);
         }
         CAN0.sendFrame(outFrame);
         if (SysSettings.lawicelAutoPoll) Serial.print("z");
@@ -102,7 +102,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         if (outFrame.length < 0) outFrame.length = 0;
         if (outFrame.length > 8) outFrame.length = 8;
         for (int data = 0; data < outFrame.length; data++) {
-            outFrame.data.bytes[data] = Utility::parseHexString(buffer + 10 + (2 * data), 2);
+            outFrame.data.uint8[data] = Utility::parseHexString(buffer + 10 + (2 * data), 2);
         }
         CAN0.sendFrame(outFrame);
         if (SysSettings.lawicelAutoPoll) Serial.print("Z");
@@ -158,7 +158,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
                 outFrame.id = id;
                 outFrame.length = numBytes;
                 outFrame.extended = false;
-                for (int b = 0; b < numBytes; b++) outFrame.data.bytes[b] = bytes[b];
+                for (int b = 0; b < numBytes; b++) outFrame.data.uint8[b] = bytes[b];
                 CAN0.sendFrame(outFrame);
             }
             // if (!strcasecmp(tokens[1], "CAN1")) {
@@ -166,7 +166,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
             //     outFrame.id = id;
             //     outFrame.length = numBytes;
             //     outFrame.extended = false;
-            //     for (int b = 0; b < numBytes; b++) outFrame.data.bytes[b] = bytes[b];
+            //     for (int b = 0; b < numBytes; b++) outframe.data.uint8[b] = bytes[b];
             //     CAN1.sendFrame(outFrame);
             // }            
         }
@@ -286,7 +286,7 @@ bool LAWICELHandler::parseLawicelCANCmd(CAN_FRAME &frame) {
     int idx = 3;
     int dataLen = 0;
     while (tokens[idx] != nullptr) {
-        frame.data.bytes[dataLen++] = strtol(tokens[idx], nullptr, 16);
+        frame.data.uint8[dataLen++] = strtol(tokens[idx], nullptr, 16);
         idx++;
     }
     frame.length = dataLen;

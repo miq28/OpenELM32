@@ -408,7 +408,7 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
             default:
                 if(step < build_out_frame.length + 6) 
                 {
-                    build_out_frame.data.bytes[step - 6] = in_byte;
+                    build_out_frame.data.uint8[step - 6] = in_byte;
                 } 
                 else 
                 {

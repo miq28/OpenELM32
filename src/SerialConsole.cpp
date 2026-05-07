@@ -517,7 +517,7 @@ bool SerialConsole::handleCANSend(CAN_COMMON &port, char *inputString)
     for (int i = 0; i < lenVal; i++) {
         dataTok = strtok(NULL, ",");
         if (!dataTok) return false;
-        frame.data.byte[i] = strtol(dataTok, NULL, 0);
+        frame.data.uint8[i] = strtol(dataTok, NULL, 0);
     }
 
     //things seem good so try to send the frame.

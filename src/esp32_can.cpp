@@ -146,7 +146,7 @@ bool ESP32CAN::sendFrame(CAN_FRAME &frame)
     msg.extd = frame.extended;
     msg.rtr = frame.rtr;
 
-    memcpy(msg.data, frame.data.byte, frame.length);
+    memcpy(msg.data, frame.data.uint8, frame.length);
 
     bool ok = (twai_transmit(&msg, pdMS_TO_TICKS(10)) == ESP_OK);
 
@@ -165,13 +165,13 @@ uint32_t ESP32CAN::get_rx_buff(CAN_FRAME &frame)
     if (twai_receive(&msg, 0) == ESP_OK)
     {
         rgbCanRxActivity();
-        
+
         frame.id = msg.identifier;
         frame.length = msg.data_length_code;
         frame.extended = msg.extd;
         frame.rtr = msg.rtr;
 
-        memcpy(frame.data.byte, msg.data, msg.data_length_code);
+        memcpy(frame.data.uint8, msg.data, msg.data_length_code);
         return 1;
     }
     return 0;

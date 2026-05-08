@@ -564,8 +564,7 @@ void loop()
         lastFlushMicros = micros();
         if (serialLength > 0)
         {
-            Serial.write(serialGVRET.getBufferedBytes(), serialLength);
-            serialGVRET.clearBufferedBytes();
+            serialGVRET.flushToStream(Serial);
         }
         if (wifiLength > 0)
         {

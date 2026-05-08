@@ -6,6 +6,7 @@ Implements handling of the GVRET comm protocol, both sending and receiving
 #include "SerialConsole.h"
 #include "config.h"
 #include "can_manager.h"
+#include "rgb_status.h"
 
 GVRET_Comm_Handler::GVRET_Comm_Handler()
     : txBuffer(nullptr)
@@ -16,6 +17,8 @@ GVRET_Comm_Handler::GVRET_Comm_Handler()
 
 void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
 {
+    rgbHostActivity();
+    
     uint32_t busSpeed = 0;
     uint32_t now = micros();
 

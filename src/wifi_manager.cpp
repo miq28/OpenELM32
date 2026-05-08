@@ -8,6 +8,7 @@
 #include "debug.h"
 #include "heap_probe.h"
 #include "esp_phy_init.h"
+#include "rgb_status.h"
 
 #define OTA_PORT 3232
 #define TELNET_PORT 23
@@ -32,6 +33,26 @@ enum OTAState
 };
 
 static OTAState otaState = OTA_OFF;
+
+static bool hasAnyWiFiClient()
+{
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (SysSettings.clientNodes[i] &&
+            SysSettings.clientNodes[i].connected())
+        {
+            return true;
+        }
+
+        if (SysSettings.wifiOBDClients[i] &&
+            SysSettings.wifiOBDClients[i].connected())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 static void setHostnameEarly(const char *name)
 {
@@ -199,7 +220,8 @@ void WiFiManager::setup()
 
 static size_t getFrameSize(const uint8_t *buf, size_t available)
 {
-    if (available < 2) return 0;
+    if (available < 2)
+        return 0;
 
     uint8_t cmd = buf[0];
 
@@ -208,21 +230,22 @@ static size_t getFrameSize(const uint8_t *buf, size_t available)
 
     switch (cmd)
     {
-        // CAN frame (most common)
-        case 0xF1: // example: standard CAN frame
-        case 0xF2: // example: extended CAN frame
-        {
-            if (available < 2) return 0;
-            uint8_t len = buf[1];
-            return len + 2; // header + payload
-        }
-
-        default:
-            // fallback: treat as minimal frame
-            if (available >= 2)
-                return buf[1] + 2;
-
+    // CAN frame (most common)
+    case 0xF1: // example: standard CAN frame
+    case 0xF2: // example: extended CAN frame
+    {
+        if (available < 2)
             return 0;
+        uint8_t len = buf[1];
+        return len + 2; // header + payload
+    }
+
+    default:
+        // fallback: treat as minimal frame
+        if (available >= 2)
+            return buf[1] + 2;
+
+        return 0;
     }
 }
 
@@ -350,6 +373,12 @@ void WiFiManager::loop()
             wifiUDPServer.endPacket();
         }
     }
+
+    rgbSetWiFiState(
+        settings.wifiMode != 0,
+        settings.wifiMode == 1,
+        WiFi.isConnected(),
+        hasAnyWiFiClient());
 
     ArduinoOTA.handle();
 }

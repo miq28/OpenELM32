@@ -82,6 +82,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define KEY GPIO_NUM_0
 #endif
 
+#if defined(WEACT_STUDIO_CAN485_V1)
+
+    #define HAS_RGB_STATUS_LED 1
+    #define RGB_STATUS_LED_PIN RGB_LED
+
+#else
+
+    #define HAS_RGB_STATUS_LED 0
+
+#endif
+
 
 //size to use for buffering writes to USB. On the ESP32 we're actually talking TTL serial to a TTL<->USB chip
 #define SER_BUFF_SIZE       1024
@@ -120,6 +131,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define LED_BRIGHTNESS  190
 #define LED_TYPE    WS2812 // was WS2812B
 #define COLOR_ORDER GRB
+
+// ===== RGB SUPPORT =====
+#if defined(WEACT_STUDIO_CAN485_V1)
+    #define HAS_RGB_STATUS_LED 1
+#else
+    #define HAS_RGB_STATUS_LED 0
+#endif
 
 #define SW_EN     2
 #define SW_MODE0  26

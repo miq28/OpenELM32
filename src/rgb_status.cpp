@@ -2,76 +2,240 @@
 
 #if defined(WEACT_STUDIO_CAN485_V1)
 
-#include <Adafruit_NeoPixel.h>
+#include <Arduino.h>
+#include <WiFi.h>
 #include "config.h"
 
-static Adafruit_NeoPixel pixel(1, RGB_LED, NEO_GRB + NEO_KHZ800);
+// ===== ACTIVITY TIMERS =====
+static uint32_t rxUntil = 0;
+static uint32_t txUntil = 0;
+static uint32_t hostUntil = 0;
 
-static volatile uint32_t rxUntil = 0;
-static volatile uint32_t txUntil = 0;
-static volatile bool errorState = false;
+// ===== ERROR =====
+static bool canError = false;
 
-static constexpr uint32_t BLINK_TIME_MS = 30;
+// ===== WIFI STATE =====
+static bool wifiEnabledState = false;
+static bool wifiSTAState = false;
+static bool wifiConnectedState = false;
+static bool wifiClientState = false;
 
-static void applyColor(uint8_t r, uint8_t g, uint8_t b)
+// ===== BLINK =====
+static bool blinkState = false;
+static uint32_t lastBlinkToggle = 0;
+
+// ===== LAST OUTPUT =====
+static uint8_t lastR = 255;
+static uint8_t lastG = 255;
+static uint8_t lastB = 255;
+
+// =====================================================
+// Helper
+// =====================================================
+
+static inline uint8_t clampAdd(uint8_t a, uint8_t b)
 {
-    pixel.setPixelColor(0, pixel.Color(r, g, b));
-    pixel.show();
+    uint16_t v = a + b;
+
+    if (v > 255)
+        return 255;
+
+    return v;
 }
+
+static void setLED(uint8_t r, uint8_t g, uint8_t b)
+{
+    // avoid unnecessary updates
+    if (r == lastR &&
+        g == lastG &&
+        b == lastB)
+    {
+        return;
+    }
+
+    lastR = r;
+    lastG = g;
+    lastB = b;
+
+    // ESP32 neopixelWrite uses GRB order
+    rgbLedWrite(RGB_LED, r, g, b);
+}
+
+// =====================================================
+// Public API
+// =====================================================
 
 void rgbStatusInit()
 {
-    pixel.begin();
-    pixel.clear();
-    pixel.show();
+    setLED(0, 0, 0);
 }
 
 void rgbCanRxActivity()
 {
-    rxUntil = millis() + BLINK_TIME_MS;
+    rxUntil = millis() + RGB_CAN_BLINK_MS;
 }
 
 void rgbCanTxActivity()
 {
-    txUntil = millis() + BLINK_TIME_MS;
+    txUntil = millis() + RGB_CAN_BLINK_MS;
+}
+
+void rgbHostActivity()
+{
+    hostUntil = millis() + RGB_HOST_BLINK_MS;
 }
 
 void rgbCanError(bool active)
 {
-    errorState = active;
+    canError = active;
 }
+
+void rgbSetWiFiState(
+    bool wifiEnabled,
+    bool isSTA,
+    bool wifiConnected,
+    bool clientConnected)
+{
+    wifiEnabledState = wifiEnabled;
+    wifiSTAState = isSTA;
+    wifiConnectedState = wifiConnected;
+    wifiClientState = clientConnected;
+}
+
+// =====================================================
+// WiFi Background Renderer
+// =====================================================
+
+static void buildWiFiBackground(
+    uint8_t &r,
+    uint8_t &g,
+    uint8_t &b)
+{
+    if (!wifiEnabledState)
+    {
+        return;
+    }
+
+    // =================================================
+    // STA MODE
+    // =================================================
+
+    if (wifiSTAState)
+    {
+        // disconnected -> blinking purple
+        if (!wifiConnectedState)
+        {
+            if (!blinkState)
+            {
+                return;
+            }
+
+            r = 8;
+            b = 10;
+            return;
+        }
+
+        // connected no client
+        if (!wifiClientState)
+        {
+            r = RGB_WIFI_DIM / 2;
+            if (r > 8)
+                r = 8;
+            b = RGB_WIFI_DIM;
+            return;
+        }
+
+        // connected + client
+        r = 8;
+        b = RGB_WIFI_BRIGHT;
+        return;
+    }
+
+    // =================================================
+    // AP MODE
+    // =================================================
+
+    // AP active no client
+    if (!wifiClientState)
+    {
+        r = 10;
+        g = 6;
+        return;
+    }
+
+    // AP active + client
+    r = 20;
+    g = 12;
+}
+
+// =====================================================
+// Main Loop
+// =====================================================
 
 void rgbStatusLoop()
 {
     uint32_t now = millis();
 
-    // Highest priority
-    if (errorState)
+    // ===== WIFI BLINK =====
+    if ((now - lastBlinkToggle) >= RGB_WIFI_BLINK_MS)
     {
-        applyColor(255, 0, 0);
+        lastBlinkToggle = now;
+        blinkState = !blinkState;
+    }
+
+    // =================================================
+    // ERROR OVERRIDE
+    // =================================================
+
+    if (canError)
+    {
+        setLED(RGB_ERROR_BRIGHTNESS, 0, 0);
         return;
     }
 
-    bool rxActive = (int32_t)(rxUntil - now) > 0;
-    bool txActive = (int32_t)(txUntil - now) > 0;
+    // =================================================
+    // BASE COLOR
+    // =================================================
 
-    // RX + TX simultaneously
-    if (rxActive && txActive)
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
+
+    buildWiFiBackground(r, g, b);
+
+    // =================================================
+    // HOST OVERLAY
+    // =================================================
+
+    if (now < hostUntil)
     {
-        applyColor(0, 255, 255);
+        r = clampAdd(r, RGB_HOST_BRIGHTNESS);
+        g = clampAdd(g, RGB_HOST_BRIGHTNESS);
+        b = clampAdd(b, RGB_HOST_BRIGHTNESS);
     }
-    else if (rxActive)
+
+    // =================================================
+    // CAN OVERLAY
+    // =================================================
+
+    bool rx = (now < rxUntil);
+    bool tx = (now < txUntil);
+
+    if (rx && tx)
     {
-        applyColor(0, 0, 255);
+        g = clampAdd(g, RGB_CAN_RXTX_BRIGHTNESS);
+        b = clampAdd(b, RGB_CAN_RXTX_BRIGHTNESS);
     }
-    else if (txActive)
+    else if (rx)
     {
-        applyColor(0, 255, 0);
+        b = clampAdd(b, RGB_CAN_RX_BRIGHTNESS);
     }
-    else
+    else if (tx)
     {
-        applyColor(0, 0, 0);
+        g = clampAdd(g, RGB_CAN_TX_BRIGHTNESS);
     }
+
+    setLED(r, g, b);
 }
 
 #endif

@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <Client.h>
+#include <Stream.h>
 #include "config.h"
 #include "esp32_can.h"
 
@@ -17,6 +19,9 @@ public:
     void sendString(String str);
     void sendCharString(char *str);
     void consume(size_t n);
+
+    size_t flushToClient(Client &client);
+    size_t flushToStream(Stream &stream);
 
 protected:
     byte transmitBuffer[WIFI_BUFF_SIZE];

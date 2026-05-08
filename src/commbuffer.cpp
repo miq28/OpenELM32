@@ -152,3 +152,41 @@ void CommBuffer::consume(size_t n)
     memmove(transmitBuffer, transmitBuffer + n, transmitBufferLength - n);
     transmitBufferLength -= n;
 }
+
+size_t CommBuffer::flushToClient(Client &client)
+{
+    size_t available = transmitBufferLength;
+
+    if (available == 0)
+    {
+        return 0;
+    }
+
+    size_t sent = client.write(transmitBuffer, available);
+
+    if (sent > 0)
+    {
+        consume(sent);
+    }
+
+    return sent;
+}
+
+size_t CommBuffer::flushToStream(Stream &stream)
+{
+    size_t available = transmitBufferLength;
+
+    if (available == 0)
+    {
+        return 0;
+    }
+
+    size_t sent = stream.write(transmitBuffer, available);
+
+    if (sent > 0)
+    {
+        consume(sent);
+    }
+
+    return sent;
+}

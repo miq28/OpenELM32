@@ -403,16 +403,12 @@ void WiFiManager::sendBufferedData()
         if (available == 0)
             return;
 
-        uint8_t *buf = wifiGVRET.getBufferedBytes();
-
-        // ===== ZERO-COPY SEND =====
-        size_t sent = SysSettings.clientNodes[i].write(buf, available);
+        size_t sent =
+            wifiGVRET.flushToClient(SysSettings.clientNodes[i]);
 
         if (sent > 0)
         {
             wifiBytesSent += sent;
-            
-            wifiGVRET.consume(sent);
         }
         else
         {

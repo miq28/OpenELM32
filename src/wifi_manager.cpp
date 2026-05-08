@@ -376,7 +376,7 @@ void WiFiManager::sendBufferedData()
         return;
 
     // ===== SAFEGUARD #2: backlog =====
-    if (wifiBuffer.numAvailableBytes() > 8192)
+    if (wifiBuffer.numAvailableBytes() >= WIFI_BUFF_SIZE)
     {
         DEBUG("[WARN] buffer overflow protection, dropping\n");
         wifiBuffer.clearBufferedBytes();

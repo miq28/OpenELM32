@@ -128,12 +128,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //How many devices to allow to connect to our WiFi telnet port?
 #define MAX_CLIENTS 1
 
-
-
-extern volatile uint32_t wifiBytesSent;
-
-
-
 struct FILTER {  //should be 10 bytes
     uint32_t id;
     uint32_t mask;
@@ -198,6 +192,7 @@ struct SystemSettings {
     boolean isWifiActive;
 };
 
+class CommBuffer;
 class GVRET_Comm_Handler;
 class SerialConsole;
 class CANManager;
@@ -217,5 +212,11 @@ extern char deviceName[20];
 extern char otaHost[40];
 extern char otaFilename[100];
 extern CAN_COMMON *canBuses[NUM_BUSES];
+
+extern CommBuffer serialBuffer;
+extern CommBuffer wifiBuffer;
+
+extern volatile uint32_t wifiBytesSent;
+
 
 #endif /* CONFIG_H_ */

@@ -368,7 +368,7 @@ void WiFiManager::sendBufferedData()
               ESP.getFreeHeap(),
               heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
               heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-              wifiGVRET.numAvailableBytes());
+              wifiBuffer.numAvailableBytes());
     }
 
     // ===== SAFEGUARD #1: heap =====
@@ -376,10 +376,10 @@ void WiFiManager::sendBufferedData()
         return;
 
     // ===== SAFEGUARD #2: backlog =====
-    if (wifiGVRET.numAvailableBytes() > 8192)
+    if (wifiBuffer.numAvailableBytes() > 8192)
     {
         DEBUG("[WARN] buffer overflow protection, dropping\n");
-        wifiGVRET.clearBufferedBytes();
+        wifiBuffer.clearBufferedBytes();
         return;
     }
 
@@ -399,14 +399,14 @@ void WiFiManager::sendBufferedData()
         if (!(SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected()))
             continue;
 
-        size_t available = wifiGVRET.numAvailableBytes();
+        size_t available = wifiBuffer.numAvailableBytes();
         if (available == 0)
             return;
 
         TransportEndpoint endpoint(&SysSettings.clientNodes[i]);
 
         size_t sent =
-            wifiGVRET.flushToEndpoint(endpoint);
+            wifiBuffer.flushToEndpoint(endpoint);
 
         if (sent > 0)
         {

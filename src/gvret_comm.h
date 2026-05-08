@@ -43,11 +43,14 @@ enum GVRET_PROTOCOL
     PROTO_GET_FD = 22,
 };
 
-class GVRET_Comm_Handler: public CommBuffer
+class GVRET_Comm_Handler
 {
 public:
     GVRET_Comm_Handler();
     void processIncomingByte(uint8_t in_byte);
+
+    void setBuffer(CommBuffer *buffer);
+    CommBuffer *getBuffer();
     
 private:
     CAN_FRAME build_out_frame;
@@ -59,4 +62,6 @@ private:
     uint32_t build_int;
 
     uint8_t checksumCalc(uint8_t *buffer, int length);
+
+    CommBuffer *txBuffer;
 };

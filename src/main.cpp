@@ -168,6 +168,9 @@ ELM327Emu elmEmulator;
 
 WiFiManager wifiManager;
 
+CommBuffer serialBuffer;
+CommBuffer wifiBuffer;
+
 GVRET_Comm_Handler serialGVRET; // gvret protocol over the serial to USB connection
 GVRET_Comm_Handler wifiGVRET;   // GVRET over the wifi telnet port
 CANManager canManager;          // keeps track of bus load and abstracts away some details of how things are done
@@ -247,6 +250,9 @@ void buildDeviceName(char *out, size_t outSize, const char *baseName)
 void loadSettings()
 {
     Logger::console("Loading settings....");
+
+    serialGVRET.setBuffer(&serialBuffer);
+    wifiGVRET.setBuffer(&wifiBuffer);
 
 #if defined(WEACT_STUDIO_CAN485_V1)
 #define BASE_DEVICE_NAME "WEACT_CAN485"
@@ -470,8 +476,6 @@ void setup()
     // CAN0.setDebuggingMode(true);
     // CAN1.setDebuggingMode(true);
 
-    
-
     if (settings.enableBT)
     {
         DEBUG_PRINTLN("Starting bluetooth");
@@ -554,8 +558,8 @@ void loop()
     canManager.loop();
     /*if (!settings.enableBT)*/ wifiManager.loop();
 
-    size_t wifiLength = wifiGVRET.numAvailableBytes();
-    size_t serialLength = serialGVRET.numAvailableBytes();
+    size_t wifiLength = wifiBuffer.numAvailableBytes();
+    size_t serialLength = serialBuffer.numAvailableBytes();
     size_t maxLength = (wifiLength > serialLength) ? wifiLength : serialLength;
 
     // If the max time has passed or the buffer is almost filled then send buffered data out
@@ -566,7 +570,7 @@ void loop()
         {
             TransportEndpoint endpoint(&Serial);
 
-            serialGVRET.flushToEndpoint(endpoint);
+            serialBuffer.flushToEndpoint(endpoint);
         }
         if (wifiLength > 0)
         {

@@ -17,12 +17,12 @@ void CommBuffer::clearBufferedBytes()
     transmitBufferLength = 0;
 }
 
-uint8_t* CommBuffer::getBufferedBytes()
+uint8_t *CommBuffer::getBufferedBytes()
 {
     return transmitBuffer;
 }
 
-//a bit faster version that blasts through the copy more efficiently.
+// a bit faster version that blasts through the copy more efficiently.
 void CommBuffer::sendBytesToBuffer(uint8_t *bytes, size_t length)
 {
     memcpy(&transmitBuffer[transmitBufferLength], bytes, length);
@@ -57,10 +57,12 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
 {
     uint8_t temp;
     size_t writtenBytes;
-    if (settings.useBinarySerialComm) {
-        if (frame.extended) frame.id |= 1 << 31;
+    if (settings.useBinarySerialComm)
+    {
+        if (frame.extended)
+            frame.id |= 1 << 31;
         transmitBuffer[transmitBufferLength++] = 0xF1;
-        transmitBuffer[transmitBufferLength++] = 0; //0 = canbus frame sending
+        transmitBuffer[transmitBufferLength++] = 0; // 0 = canbus frame sending
         uint32_t now = micros();
         transmitBuffer[transmitBufferLength++] = (uint8_t)(now & 0xFF);
         transmitBuffer[transmitBufferLength++] = (uint8_t)(now >> 8);
@@ -71,22 +73,28 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
         transmitBuffer[transmitBufferLength++] = (uint8_t)(frame.id >> 16);
         transmitBuffer[transmitBufferLength++] = (uint8_t)(frame.id >> 24);
         transmitBuffer[transmitBufferLength++] = frame.length + (uint8_t)(whichBus << 4);
-        for (int c = 0; c < frame.length; c++) {
+        for (int c = 0; c < frame.length; c++)
+        {
             transmitBuffer[transmitBufferLength++] = frame.data.uint8[c];
         }
-        //temp = checksumCalc(buff, 11 + frame.length);
+        // temp = checksumCalc(buff, 11 + frame.length);
         temp = 0;
         transmitBuffer[transmitBufferLength++] = temp;
-        //Serial.write(buff, 12 + frame.length);
-    } else {
+        // Serial.write(buff, 12 + frame.length);
+    }
+    else
+    {
         writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%d - %x", micros(), frame.id);
         transmitBufferLength += writtenBytes;
-        if (frame.extended) sprintf((char *)&transmitBuffer[transmitBufferLength], " X ");
-        else sprintf((char *)&transmitBuffer[transmitBufferLength], " S ");
+        if (frame.extended)
+            sprintf((char *)&transmitBuffer[transmitBufferLength], " X ");
+        else
+            sprintf((char *)&transmitBuffer[transmitBufferLength], " S ");
         transmitBufferLength += 3;
         writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%i %i", whichBus, frame.length);
         transmitBufferLength += writtenBytes;
-        for (int c = 0; c < frame.length; c++) {
+        for (int c = 0; c < frame.length; c++)
+        {
             writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], " %x", frame.data.uint8[c]);
             transmitBufferLength += writtenBytes;
         }
@@ -99,8 +107,10 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
 {
     uint8_t temp;
     size_t writtenBytes;
-    if (settings.useBinarySerialComm) {
-        if (frame.extended) frame.id |= 1 << 31;
+    if (settings.useBinarySerialComm)
+    {
+        if (frame.extended)
+            frame.id |= 1 << 31;
         transmitBuffer[transmitBufferLength++] = 0xF1;
         transmitBuffer[transmitBufferLength++] = PROTO_BUILD_FD_FRAME;
         uint32_t now = micros();
@@ -114,22 +124,28 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
         transmitBuffer[transmitBufferLength++] = (uint8_t)(frame.id >> 24);
         transmitBuffer[transmitBufferLength++] = frame.length;
         transmitBuffer[transmitBufferLength++] = (uint8_t)(whichBus);
-        for (int c = 0; c < frame.length; c++) {
+        for (int c = 0; c < frame.length; c++)
+        {
             transmitBuffer[transmitBufferLength++] = frame.data.uint8[c];
         }
-        //temp = checksumCalc(buff, 11 + frame.length);
+        // temp = checksumCalc(buff, 11 + frame.length);
         temp = 0;
         transmitBuffer[transmitBufferLength++] = temp;
-        //Serial.write(buff, 12 + frame.length);
-    } else {
+        // Serial.write(buff, 12 + frame.length);
+    }
+    else
+    {
         writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%d - %x", micros(), frame.id);
         transmitBufferLength += writtenBytes;
-        if (frame.extended) sprintf((char *)&transmitBuffer[transmitBufferLength], " X ");
-        else sprintf((char *)&transmitBuffer[transmitBufferLength], " S ");
+        if (frame.extended)
+            sprintf((char *)&transmitBuffer[transmitBufferLength], " X ");
+        else
+            sprintf((char *)&transmitBuffer[transmitBufferLength], " S ");
         transmitBufferLength += 3;
         writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%i %i", whichBus, frame.length);
         transmitBufferLength += writtenBytes;
-        for (int c = 0; c < frame.length; c++) {
+        for (int c = 0; c < frame.length; c++)
+        {
             writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], " %x", frame.data.uint8[c]);
             transmitBufferLength += writtenBytes;
         }
@@ -140,7 +156,8 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
 
 void CommBuffer::consume(size_t n)
 {
-    if (n == 0) return;
+    if (n == 0)
+        return;
 
     if (n >= transmitBufferLength)
     {
@@ -153,7 +170,7 @@ void CommBuffer::consume(size_t n)
     transmitBufferLength -= n;
 }
 
-size_t CommBuffer::flushToClient(Client &client)
+size_t CommBuffer::flushToEndpoint(TransportEndpoint &endpoint)
 {
     size_t available = transmitBufferLength;
 
@@ -162,26 +179,12 @@ size_t CommBuffer::flushToClient(Client &client)
         return 0;
     }
 
-    size_t sent = client.write(transmitBuffer, available);
-
-    if (sent > 0)
-    {
-        consume(sent);
-    }
-
-    return sent;
-}
-
-size_t CommBuffer::flushToStream(Stream &stream)
-{
-    size_t available = transmitBufferLength;
-
-    if (available == 0)
+    if (!endpoint.connected())
     {
         return 0;
     }
 
-    size_t sent = stream.write(transmitBuffer, available);
+    size_t sent = endpoint.write(transmitBuffer, available);
 
     if (sent > 0)
     {

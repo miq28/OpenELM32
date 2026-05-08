@@ -564,7 +564,9 @@ void loop()
         lastFlushMicros = micros();
         if (serialLength > 0)
         {
-            serialGVRET.flushToStream(Serial);
+            TransportEndpoint endpoint(&Serial);
+
+            serialGVRET.flushToEndpoint(endpoint);
         }
         if (wifiLength > 0)
         {

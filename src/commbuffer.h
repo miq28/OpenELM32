@@ -1,7 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <Client.h>
-#include <Stream.h>
+#include "transport_endpoint.h"
 #include "config.h"
 #include "esp32_can.h"
 
@@ -10,7 +9,7 @@ class CommBuffer
 public:
     CommBuffer();
     size_t numAvailableBytes();
-    uint8_t* getBufferedBytes();
+    uint8_t *getBufferedBytes();
     void clearBufferedBytes();
     void sendFrameToBuffer(CAN_FRAME &frame, int whichBus);
     void sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus);
@@ -20,10 +19,9 @@ public:
     void sendCharString(char *str);
     void consume(size_t n);
 
-    size_t flushToClient(Client &client);
-    size_t flushToStream(Stream &stream);
+    size_t flushToEndpoint(TransportEndpoint &endpoint);
 
 protected:
     byte transmitBuffer[WIFI_BUFF_SIZE];
-    int transmitBufferLength; //not creating a ring buffer. The buffer should be large enough to never overflow
+    int transmitBufferLength; // not creating a ring buffer. The buffer should be large enough to never overflow
 };

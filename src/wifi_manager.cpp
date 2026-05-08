@@ -403,8 +403,10 @@ void WiFiManager::sendBufferedData()
         if (available == 0)
             return;
 
+        TransportEndpoint endpoint(&SysSettings.clientNodes[i]);
+
         size_t sent =
-            wifiGVRET.flushToClient(SysSettings.clientNodes[i]);
+            wifiGVRET.flushToEndpoint(endpoint);
 
         if (sent > 0)
         {

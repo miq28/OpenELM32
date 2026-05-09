@@ -1,7 +1,8 @@
 #pragma once
 #include "config.h"
 
-typedef struct {
+typedef struct
+{
     uint32_t bitsPerQuarter;
     uint32_t bitsSoFar;
     uint8_t busloadPercentage;
@@ -14,7 +15,7 @@ class CAN_FRAME_FD;
 class CANManager
 {
 public:
-    CANManager(); 
+    CANManager();
     void sendFrame(CAN_COMMON *bus, CAN_FRAME &frame);
     void sendFrame(CAN_COMMON *bus, CAN_FRAME_FD &frame);
     void displayFrame(CAN_FRAME &frame, int whichBus);

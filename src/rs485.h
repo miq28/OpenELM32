@@ -14,7 +14,7 @@ public:
 
     int available();
     int read();
-    size_t readBytes(uint8_t* buf, size_t maxLen);
+    size_t readBytes(uint8_t *buf, size_t maxLen);
 
 private:
     void setTX();

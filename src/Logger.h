@@ -30,10 +30,16 @@
 #include <Arduino.h>
 #include "config.h"
 
-class Logger {
+class Logger
+{
 public:
-    enum LogLevel {
-        Debug = 0, Info = 1, Warn = 2, Error = 3, Off = 4
+    enum LogLevel
+    {
+        Debug = 0,
+        Info = 1,
+        Warn = 2,
+        Error = 3,
+        Off = 4
     };
     static void debug(const char *, ...);
     static void info(const char *, ...);
@@ -45,6 +51,7 @@ public:
     static uint32_t getLastLogTime();
     static boolean isDebug();
     static void loop();
+
 private:
     static LogLevel logLevel;
     static uint32_t lastLogTime;
@@ -54,4 +61,3 @@ private:
 };
 
 #endif /* LOGGER_H_ */
-

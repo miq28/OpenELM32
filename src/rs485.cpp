@@ -16,7 +16,7 @@ typedef struct
 } tx_item_t;
 
 static QueueHandle_t txQueue;
-static SemaphoreHandle_t uartMutex;   // ✅ NEW
+static SemaphoreHandle_t uartMutex; // ✅ NEW
 
 // ===== STDOUT HOOK (DISABLED - keep it disabled) =====
 // extern "C" int _write(...) { ... }
@@ -30,7 +30,7 @@ void RS485Port::begin(uint32_t baud)
     RS485Serial.begin(baud, SERIAL_8N1, (int)RS485_RO, (int)RS485_DI);
 
     txQueue = xQueueCreate(64, sizeof(tx_item_t));
-    uartMutex = xSemaphoreCreateMutex();   // ✅ NEW
+    uartMutex = xSemaphoreCreateMutex(); // ✅ NEW
 
     xTaskCreatePinnedToCore(
         txTask,
@@ -56,7 +56,8 @@ void RS485Port::setRX()
 // ===== ENQUEUE =====
 void RS485Port::enqueue(const uint8_t *data, size_t len)
 {
-    if (!txQueue) return;
+    if (!txQueue)
+        return;
 
     tx_item_t item;
     item.len = len > sizeof(item.data) ? sizeof(item.data) : len;
@@ -68,20 +69,23 @@ void RS485Port::enqueue(const uint8_t *data, size_t len)
 // ===== PRINT API =====
 void RS485Port::print(const char *str)
 {
-    if (!str) return;
+    if (!str)
+        return;
     enqueue((const uint8_t *)str, strlen(str));
 }
 
 void RS485Port::println(const char *str)
 {
-    if (!str) return;
+    if (!str)
+        return;
     enqueue((const uint8_t *)str, strlen(str));
     enqueue((const uint8_t *)"\r\n", 2);
 }
 
 void RS485Port::printf(const char *format, ...)
 {
-    if (!format) return;
+    if (!format)
+        return;
 
     char buffer[256];
 
@@ -90,7 +94,8 @@ void RS485Port::printf(const char *format, ...)
     int len = vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    if (len <= 0) return;
+    if (len <= 0)
+        return;
 
     if (len >= (int)sizeof(buffer))
         len = sizeof(buffer) - 1;
@@ -176,7 +181,8 @@ size_t RS485Port::readBytes(uint8_t *buf, size_t maxLen)
     while (RS485Serial.available() && n < maxLen)
     {
         int b = RS485Serial.read();
-        if (b < 0) break;
+        if (b < 0)
+            break;
         buf[n++] = (uint8_t)b;
     }
 

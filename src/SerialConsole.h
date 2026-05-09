@@ -30,7 +30,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "config.h"
 #include "esp32_can.h"
 
-class SerialConsole {
+class SerialConsole
+{
 public:
     SerialConsole();
     void printMenu();
@@ -38,12 +39,13 @@ public:
     void printBusName(int bus);
 
 protected:
-    enum CONSOLE_STATE {
+    enum CONSOLE_STATE
+    {
         STATE_ROOT_MENU
     };
 
 private:
-    char cmdBuffer[80];    
+    char cmdBuffer[80];
     int ptrBuffer;
     int state;
 

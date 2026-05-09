@@ -199,8 +199,7 @@ bool ESP32CAN::isInErrorState()
         status.state == TWAI_STATE_RECOVERING ||
         status.state == TWAI_STATE_STOPPED ||
         status.tx_error_counter >= 128 ||
-        status.rx_error_counter >= 128
-    );
+        status.rx_error_counter >= 128);
 }
 
 void ESP32CAN::setListenOnlyMode(bool state)

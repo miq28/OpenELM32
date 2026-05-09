@@ -46,7 +46,6 @@ AT DPN (get protocol by number) - (always return 6)
 AT RV (adapter voltage) - Send something like 14.4V
 */
 
-
 #ifndef ELM327_H_
 #define ELM327_H_
 
@@ -59,12 +58,12 @@ AT RV (adapter voltage) - Send something like 14.4V
 
 class CAN_FRAME;
 
-class ELM327Emu {
+class ELM327Emu
+{
 public:
-
     ELM327Emu();
-    void setup(); //initialization on start up
-    void handleTick(); //periodic processes
+    void setup();      // initialization on start up
+    void handleTick(); // periodic processes
     void loop();
     void setWiFiClient(WiFiClient *client);
     void sendCmd(String cmd);
@@ -78,13 +77,13 @@ private:
 #endif
     WiFiClient *mClient;
     CommBuffer txBuffer;
-    char incomingBuffer[128]; //storage for one incoming line
-    char buffer[30]; // a buffer for various string conversions
-    bool bLineFeed; //should we use line feeds?
-    bool bHeader; //should we produce a header?
-    bool bEcho; //should we echo back anything sent to us?
-    bool bMonitorMode; //should we output all frames?
-    bool bDLC; //output DLC?
+    char incomingBuffer[128]; // storage for one incoming line
+    char buffer[30];          // a buffer for various string conversions
+    bool bLineFeed;           // should we use line feeds?
+    bool bHeader;             // should we produce a header?
+    bool bEcho;               // should we echo back anything sent to us?
+    bool bMonitorMode;        // should we output all frames?
+    bool bDLC;                // output DLC?
     uint32_t ecuAddress;
     int tickCounter;
     int ibWritePtr;

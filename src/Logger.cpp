@@ -38,7 +38,8 @@ uint32_t Logger::lastLogTime = 0;
  */
 void Logger::debug(const char *message, ...)
 {
-    if (logLevel > Debug) {
+    if (logLevel > Debug)
+    {
         return;
     }
 
@@ -54,7 +55,8 @@ void Logger::debug(const char *message, ...)
  */
 void Logger::info(const char *message, ...)
 {
-    if (logLevel > Info) {
+    if (logLevel > Info)
+    {
         return;
     }
 
@@ -70,7 +72,8 @@ void Logger::info(const char *message, ...)
  */
 void Logger::warn(const char *message, ...)
 {
-    if (logLevel > Warn) {
+    if (logLevel > Warn)
+    {
         return;
     }
 
@@ -86,7 +89,8 @@ void Logger::warn(const char *message, ...)
  */
 void Logger::error(const char *message, ...)
 {
-    if (logLevel > Error) {
+    if (logLevel > Error)
+    {
         return;
     }
 
@@ -171,7 +175,8 @@ void Logger::log(LogLevel level, const char *format, va_list args)
     Serial.print(lastLogTime);
     Serial.print(" - ");
 
-    switch (level) {
+    switch (level)
+    {
     case Debug:
         Serial.print("DEBUG");
         break;
@@ -215,94 +220,114 @@ void Logger::logMessage(const char *format, va_list args)
     uint8_t buffer[200];
     uint8_t buffLen = 0;
     uint8_t writeLen;
-    for (; *format != 0; ++format) {
-        if (*format == '%') {
+    for (; *format != 0; ++format)
+    {
+        if (*format == '%')
+        {
             ++format;
 
-            if (*format == '\0') {
+            if (*format == '\0')
+            {
                 break;
             }
 
-            if (*format == '%') {
+            if (*format == '%')
+            {
                 buffer[buffLen++] = *format;
                 continue;
             }
 
-            if (*format == 's') {
-                char *s = (char *) va_arg(args, int);
-                writeLen = sprintf((char*)&buffer[buffLen], "%s", s);
+            if (*format == 's')
+            {
+                char *s = (char *)va_arg(args, int);
+                writeLen = sprintf((char *)&buffer[buffLen], "%s", s);
                 buffLen += writeLen;
                 continue;
             }
 
-            if (*format == 'd' || *format == 'i') {
-                writeLen = sprintf((char*)&buffer[buffLen], "%i", va_arg(args, int));
+            if (*format == 'd' || *format == 'i')
+            {
+                writeLen = sprintf((char *)&buffer[buffLen], "%i", va_arg(args, int));
                 buffLen += writeLen;
                 continue;
             }
 
-            if (*format == 'f') {
-                writeLen = sprintf((char*)&buffer[buffLen], "%.2f", va_arg(args, double));
+            if (*format == 'f')
+            {
+                writeLen = sprintf((char *)&buffer[buffLen], "%.2f", va_arg(args, double));
                 buffLen += writeLen;
                 continue;
             }
 
-            if (*format == 'x') {
-                writeLen = sprintf((char*)&buffer[buffLen], "%X", va_arg(args, int));
+            if (*format == 'x')
+            {
+                writeLen = sprintf((char *)&buffer[buffLen], "%X", va_arg(args, int));
                 buffLen += writeLen;
                 continue;
             }
 
-            if (*format == 'X') {
-                writeLen = sprintf((char*)&buffer[buffLen], "0x%X", va_arg(args, int));
+            if (*format == 'X')
+            {
+                writeLen = sprintf((char *)&buffer[buffLen], "0x%X", va_arg(args, int));
                 buffLen += writeLen;
                 continue;
             }
 
-            if (*format == 'l') {
-                writeLen = sprintf((char*)&buffer[buffLen], "%l", va_arg(args, long));
+            if (*format == 'l')
+            {
+                writeLen = sprintf((char *)&buffer[buffLen], "%l", va_arg(args, long));
                 buffLen += writeLen;
                 continue;
             }
 
-            if (*format == 'c') {
-                writeLen = sprintf((char*)&buffer[buffLen], "%c", va_arg(args, int));
+            if (*format == 'c')
+            {
+                writeLen = sprintf((char *)&buffer[buffLen], "%c", va_arg(args, int));
                 buffLen += writeLen;
                 continue;
             }
 
-            if (*format == 't') {
-                if (va_arg(args, int) == 1) {
+            if (*format == 't')
+            {
+                if (va_arg(args, int) == 1)
+                {
                     buffer[buffLen++] = 'T';
-                } else {
+                }
+                else
+                {
                     buffer[buffLen++] = 'F';
                 }
                 continue;
             }
 
-            if (*format == 'T') {
-                if (va_arg(args, int) == 1) {
-                    writeLen = sprintf((char*)&buffer[buffLen], "TRUE");
+            if (*format == 'T')
+            {
+                if (va_arg(args, int) == 1)
+                {
+                    writeLen = sprintf((char *)&buffer[buffLen], "TRUE");
                     buffLen += writeLen;
-                } else {
-                    writeLen = sprintf((char*)&buffer[buffLen], "FALSE");
+                }
+                else
+                {
+                    writeLen = sprintf((char *)&buffer[buffLen], "FALSE");
                     buffLen += writeLen;
                 }
                 continue;
             }
         }
-        else buffer[buffLen++] = *format;
+        else
+            buffer[buffLen++] = *format;
     }
     buffer[buffLen++] = '\r';
     buffer[buffLen++] = '\n';
     Serial.write(buffer, buffLen);
-    //printf("%s", buffer);
-    //If wifi has connected nodes then send to them too.
-    for(int i = 0; i < MAX_CLIENTS; i++){
-        if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected()){
+    // printf("%s", buffer);
+    // If wifi has connected nodes then send to them too.
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
+        {
             SysSettings.clientNodes[i].write(buffer, buffLen);
         }
     }
 }
-
-

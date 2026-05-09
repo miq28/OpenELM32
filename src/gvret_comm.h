@@ -4,7 +4,8 @@
 #include "esp32_can.h"
 #include "commbuffer.h"
 
-enum STATE {
+enum STATE
+{
     IDLE,
     GET_COMMAND,
     BUILD_CAN_FRAME,
@@ -51,7 +52,7 @@ public:
 
     void setBuffer(CommBuffer *buffer);
     CommBuffer *getBuffer();
-    
+
 private:
     CAN_FRAME build_out_frame;
     CAN_FRAME_FD build_out_fd_frame;

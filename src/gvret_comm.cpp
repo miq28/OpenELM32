@@ -18,7 +18,7 @@ GVRET_Comm_Handler::GVRET_Comm_Handler()
 void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
 {
     rgbHostActivity();
-    
+
     uint32_t busSpeed = 0;
     uint32_t now = micros();
 

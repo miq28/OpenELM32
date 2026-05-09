@@ -62,7 +62,6 @@ static inline size_t getOutputBacklog(bool sendToConsole)
                : serialLength;
 }
 
-
 CANManager::CANManager()
 {
     sendToConsole = true;
@@ -151,6 +150,7 @@ void CANManager::displayFrame(CAN_FRAME_FD &frame, int whichBus)
     if (settings.enableLawicel && SysSettings.lawicelMode)
     {
         // lawicel.sendFrameToBuffer(frame, whichBus);
+        DEBUG_PRINTLN("lawfd");
     }
     else
     {

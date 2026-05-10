@@ -8,8 +8,9 @@
 
 #ifndef RELEASE
 
-// ===== RUNTIME CONTROL =====
-inline bool debug_to_serial; // kontrol Serial output
+inline bool debug_enabled = true;
+inline bool debug_to_serial = false;
+inline bool debug_to_rs485 = true;
 
 // ===== DELTA TIMESTAMP =====
 static inline uint32_t dbg_delta_us()
@@ -22,32 +23,40 @@ static inline uint32_t dbg_delta_us()
 }
 
 // ===== MAIN LOG (RS485 + optional Serial) =====
-#define DEBUG(fmt, ...)                                    \
-    do                                                     \
-    {                                                      \
-        uint32_t _t = dbg_delta_us();                      \
-        DEBUGPORT.printf("+%lu|" fmt, _t, ##__VA_ARGS__);  \
-        if (debug_to_serial)                               \
-            Serial.printf("+%lu|" fmt, _t, ##__VA_ARGS__); \
+#define DEBUG(fmt, ...)                  \
+    do                                   \
+    {                                    \
+        if (debug_enabled)               \
+        {                                \
+            if (debug_to_serial)         \
+                Serial.printf(fmt, ##__VA_ARGS__); \
+            if (debug_to_rs485)          \
+                RS485.printf(fmt, ##__VA_ARGS__); \
+        }                                \
     } while (0)
 
-// ===== HELPERS =====
-#define DEBUG_PRINT(s)                         \
-    do                                         \
-    {                                          \
-        uint32_t _t = dbg_delta_us();          \
-        DEBUGPORT.printf("+%lu|%s", _t, (s));  \
-        if (debug_to_serial)                   \
-            Serial.printf("+%lu|%s", _t, (s)); \
+#define DEBUG_PRINT(x)                   \
+    do                                   \
+    {                                    \
+        if (debug_enabled)               \
+        {                                \
+            if (debug_to_serial)         \
+                Serial.print(x);         \
+            if (debug_to_rs485)          \
+                RS485.print(x);          \
+        }                                \
     } while (0)
 
-#define DEBUG_PRINTLN(s)                         \
-    do                                           \
-    {                                            \
-        uint32_t _t = dbg_delta_us();            \
-        DEBUGPORT.printf("+%lu|%s\n", _t, (s));  \
-        if (debug_to_serial)                     \
-            Serial.printf("+%lu|%s\n", _t, (s)); \
+#define DEBUG_PRINTLN(x)                 \
+    do                                   \
+    {                                    \
+        if (debug_enabled)               \
+        {                                \
+            if (debug_to_serial)         \
+                Serial.println(x);       \
+            if (debug_to_rs485)          \
+                RS485.println(x);        \
+        }                                \
     } while (0)
 
 #else

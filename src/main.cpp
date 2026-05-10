@@ -303,6 +303,10 @@ void loadSettings()
         strcat(settings.btName, deviceName);
     }
 
+    debug_enabled = prefs.getBool("dbg_en", true);
+    debug_to_serial = prefs.getBool("dbg_ser", false);
+    debug_to_rs485 = prefs.getBool("dbg_485", true);
+
     uint8_t defaultVal;
 #if CONFIG_IDF_TARGET_ESP32
     defaultVal = 1;

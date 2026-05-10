@@ -9,6 +9,14 @@ Implements the lawicel protocol.
 #include "debug.h"
 #include "console_io.h"
 
+void LAWICELHandler::setOutput(Stream *s)
+{
+    if (s)
+    {
+        output = s;
+    }
+}
+
 void LAWICELHandler::handleShortCmd(char cmd)
 {
     switch (cmd)
@@ -17,34 +25,34 @@ void LAWICELHandler::handleShortCmd(char cmd)
         CAN0.setListenOnlyMode(false);
         CAN0.begin(settings.canSettings[0].nomSpeed, 255);
         CAN0.enable();
-        Serial.write(13); // send CR to mean "ok"
+        output->write(13); // send CR to mean "ok"
         SysSettings.lawicelMode = true;
         break;
     case 'C': // LAWICEL close canbus port (First one)
         CAN0.disable();
-        Serial.write(13); // send CR to mean "ok"
+        output->write(13); // send CR to mean "ok"
         break;
     case 'L': // LAWICEL open canbus port in listen only mode
         CAN0.setListenOnlyMode(true);
         CAN0.begin(settings.canSettings[0].nomSpeed, 255);
         CAN0.enable();
-        Serial.write(13); // send CR to mean "ok"
+        output->write(13); // send CR to mean "ok"
         SysSettings.lawicelMode = true;
         break;
     case 'P': // LAWICEL - poll for one waiting frame. Or, just CR if no frames
         if (CAN0.available())
             SysSettings.lawicelPollCounter = 1;
         else
-            Serial.write(13); // no waiting frames
+            output->write(13); // no waiting frames
         break;
     case 'A': // LAWICEL - poll for all waiting frames - CR if no frames
         SysSettings.lawicelPollCounter = CAN0.available();
         if (SysSettings.lawicelPollCounter == 0)
-            Serial.write(13);
+            output->write(13);
         break;
     case 'F':                // LAWICEL - read status bits
-        Serial.print("F00"); // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error warning, 3 = Data overrun, 5= Error passive, 6 = Arb. Lost, 7 = Bus Error
-        Serial.write(13);
+        output->print("F00"); // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error warning, 3 = Data overrun, 5= Error passive, 6 = Arb. Lost, 7 = Bus Error
+        output->write(13);
         break;
     case 'V': // LAWICEL - get version number
         consolePrint("V1013\n");
@@ -71,7 +79,7 @@ void LAWICELHandler::handleShortCmd(char cmd)
             for (int i = 0; i < NUM_BUSES; i++)
             {
                 printBusName(i);
-                Serial.print("\n");
+                output->print("\n");
             }
         }
         break;
@@ -107,7 +115,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         }
         CAN0.sendFrame(outFrame);
         if (SysSettings.lawicelAutoPoll)
-            Serial.print("z");
+            output->print("z");
         break;
     case 'T': // transmit extended frame
         outFrame.id = Utility::parseHexString(buffer + 1, 8);
@@ -123,7 +131,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         }
         CAN0.sendFrame(outFrame);
         if (SysSettings.lawicelAutoPoll)
-            Serial.print("Z");
+            output->print("Z");
         break;
     case 'S':
         if (!SysSettings.lawicellExtendedMode)
@@ -276,7 +284,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         }
         break;
     }
-    Serial.write(13);
+    output->write(13);
 }
 
 // Tokenize cmdBuffer on space boundaries - up to 10 tokens supported
@@ -358,47 +366,47 @@ void LAWICELHandler::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
 
     if (SysSettings.lawicellExtendedMode)
     {
-        Serial.print(micros());
-        Serial.print(" - ");
-        Serial.print(frame.id, HEX);
+        output->print(micros());
+        output->print(" - ");
+        output->print(frame.id, HEX);
         if (frame.extended)
-            Serial.print(" X ");
+            output->print(" X ");
         else
-            Serial.print(" S ");
+            output->print(" S ");
 
         printBusName(whichBus);
         for (int d = 0; d < frame.length; d++)
         {
-            Serial.print(" ");
-            Serial.print(frame.data.uint8[d], HEX);
+            output->print(" ");
+            output->print(frame.data.uint8[d], HEX);
         }
     }
     else
     {
         if (frame.extended)
         {
-            Serial.print("T");
+            output->print("T");
             sprintf((char *)buff, "%08x", frame.id);
-            Serial.print((char *)buff);
+            output->print((char *)buff);
         }
         else
         {
-            Serial.print("t");
+            output->print("t");
             sprintf((char *)buff, "%03x", frame.id);
-            Serial.print((char *)buff);
+            output->print((char *)buff);
         }
-        Serial.print(frame.length);
+        output->print(frame.length);
         for (int i = 0; i < frame.length; i++)
         {
             sprintf((char *)buff, "%02x", frame.data.uint8[i]);
-            Serial.print((char *)buff);
+            output->print((char *)buff);
         }
         if (SysSettings.lawicelTimestamping)
         {
             uint16_t timestamp = (uint16_t)millis();
             sprintf((char *)buff, "%04x", timestamp);
-            Serial.print((char *)buff);
+            output->print((char *)buff);
         }
     }
-    Serial.write(13);
+    output->write(13);
 }

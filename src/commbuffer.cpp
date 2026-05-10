@@ -25,12 +25,33 @@ uint8_t *CommBuffer::getBufferedBytes()
 // a bit faster version that blasts through the copy more efficiently.
 void CommBuffer::sendBytesToBuffer(uint8_t *bytes, size_t length)
 {
-    memcpy(&transmitBuffer[transmitBufferLength], bytes, length);
+    size_t remaining =
+        WIFI_BUFF_SIZE - transmitBufferLength;
+
+    if (length > remaining)
+    {
+        length = remaining;
+    }
+
+    if (length == 0)
+    {
+        return;
+    }
+
+    memcpy(&transmitBuffer[transmitBufferLength],
+           bytes,
+           length);
+
     transmitBufferLength += length;
 }
 
 void CommBuffer::sendByteToBuffer(uint8_t byt)
 {
+    if (transmitBufferLength >= WIFI_BUFF_SIZE)
+    {
+        return;
+    }
+
     transmitBuffer[transmitBufferLength++] = byt;
 }
 
@@ -192,4 +213,9 @@ size_t CommBuffer::flushToEndpoint(TransportEndpoint &endpoint)
     }
 
     return sent;
+}
+
+bool CommBuffer::hasSpace(size_t needed)
+{
+    return (transmitBufferLength + needed) <= WIFI_BUFF_SIZE;
 }

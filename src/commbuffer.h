@@ -21,6 +21,7 @@ public:
 
     size_t flushToEndpoint(TransportEndpoint &endpoint);
 
+    bool hasSpace(size_t needed);
 protected:
     byte transmitBuffer[WIFI_BUFF_SIZE];
     int transmitBufferLength; // not creating a ring buffer. The buffer should be large enough to never overflow

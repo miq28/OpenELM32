@@ -582,11 +582,27 @@ void loop()
         }
     }
 
+    // ===== USB SERIAL INPUT =====
     serialCnt = 0;
+
     while ((Serial.available() > 0) && serialCnt < 128)
     {
         serialCnt++;
+
         in_byte = Serial.read();
+
+        serialGVRET.processIncomingByte(in_byte);
+    }
+
+    // ===== RS485 INPUT =====
+    serialCnt = 0;
+
+    while ((RS485.available() > 0) && serialCnt < 128)
+    {
+        serialCnt++;
+
+        in_byte = RS485.read();
+
         serialGVRET.processIncomingByte(in_byte);
     }
 

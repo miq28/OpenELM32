@@ -66,22 +66,6 @@ void RS485Port::enqueue(const uint8_t *data, size_t len)
     xQueueSend(txQueue, &item, 0); // drop if full
 }
 
-// ===== PRINT API =====
-void RS485Port::print(const char *str)
-{
-    if (!str)
-        return;
-    enqueue((const uint8_t *)str, strlen(str));
-}
-
-void RS485Port::println(const char *str)
-{
-    if (!str)
-        return;
-    enqueue((const uint8_t *)str, strlen(str));
-    enqueue((const uint8_t *)"\r\n", 2);
-}
-
 void RS485Port::printf(const char *format, ...)
 {
     if (!format)
@@ -103,9 +87,19 @@ void RS485Port::printf(const char *format, ...)
     enqueue((uint8_t *)buffer, len);
 }
 
-void RS485Port::write(const uint8_t *data, size_t len)
+size_t RS485Port::write(uint8_t c)
+{
+    enqueue(&c, 1);
+
+    return 1;
+}
+
+size_t RS485Port::write(const uint8_t *data,
+                        size_t len)
 {
     enqueue(data, len);
+
+    return len;
 }
 
 // ===== TX TASK =====

@@ -9,6 +9,7 @@
 #include "heap_probe.h"
 #include "esp_phy_init.h"
 #include "rgb_status.h"
+#include "console_io.h"
 
 #define OTA_PORT 3232
 #define TELNET_PORT 23
@@ -81,19 +82,19 @@ static void initOTAHandlers()
                          type = "filesystem";
 
                       // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-                      Serial.println("Start updating " + type); })
+                      consolePrintln("Start updating " + type); })
         .onEnd([]()
-               { Serial.println("\nEnd"); })
+               { consolePrintln("\nEnd"); })
         .onProgress([](unsigned int progress, unsigned int total)
                     { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); })
         .onError([](ota_error_t error)
                  {
                       Serial.printf("Error[%u]: ", error);
-                      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-                      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-                      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-                      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-                      else if (error == OTA_END_ERROR) Serial.println("End Failed"); });
+                      if (error == OTA_AUTH_ERROR) consolePrintln("Auth Failed");
+                      else if (error == OTA_BEGIN_ERROR) consolePrintln("Begin Failed");
+                      else if (error == OTA_CONNECT_ERROR) consolePrintln("Connect Failed");
+                      else if (error == OTA_RECEIVE_ERROR) consolePrintln("Receive Failed");
+                      else if (error == OTA_END_ERROR) consolePrintln("End Failed"); });
 }
 
 // ===== OTA CONTROL =====
@@ -156,7 +157,7 @@ void WiFiManager::setupServer()
 {
     wifiServer.begin(); // setup as a telnet server
     wifiServer.setNoDelay(true);
-    Serial.println("TCP server started");
+    consolePrintln("TCP server started");
     wifiOBDII.begin(); // setup for wifi linked ELM327 emulation
     wifiOBDII.setNoDelay(true);
 }
@@ -167,7 +168,7 @@ void WiFiManager::setup()
 
     if (settings.wifiMode == 1)
     {
-        Serial.println("Wifi mode: STA");
+        consolePrintln("Wifi mode: STA");
 
         WiFi.mode(WIFI_STA);
         WiFi.disconnect(true, true); // erase + stop
@@ -189,7 +190,7 @@ void WiFiManager::setup()
     }
     else if (settings.wifiMode == 2)
     {
-        Serial.println("Wifi mode: AP");
+        consolePrintln("Wifi mode: AP");
 
         WiFi.mode(WIFI_AP);
         WiFi.disconnect(true); // reset state
@@ -209,7 +210,7 @@ void WiFiManager::setup()
     }
     else
     {
-        Serial.println("Wifi mode: OFF");
+        consolePrintln("Wifi mode: OFF");
         WiFi.mode(WIFI_OFF);
     }
 
@@ -294,7 +295,7 @@ void WiFiManager::loop()
                         SysSettings.wifiOBDClients[i].stop();
                     SysSettings.wifiOBDClients[i] = wifiOBDII.accept();
                     if (!SysSettings.wifiOBDClients[i])
-                        Serial.println("Couldn't accept client connection!");
+                        consolePrintln("Couldn't accept client connection!");
                     else
                     {
                         DEBUG("New wifi ELM client: %d %s\n",
@@ -463,7 +464,7 @@ void onOTAProgress(uint32_t progress, size_t fullSize)
     // esp_task_wdt_reset();
     if (OTAcount++ == 10)
     {
-        Serial.println(progress);
+        consolePrintln(progress);
         OTAcount = 0;
     }
     else
@@ -547,13 +548,13 @@ void WiFiManager::attemptOTAUpdate()
             if (line.startsWith("Content-Length: "))
             {
                 contentLength = atoi((getHeaderValue(line, "Content-Length: ")).c_str());
-                Serial.println("              ...Server indicates " + String(contentLength) + " byte file size\n");
+                consolePrintln("              ...Server indicates " + String(contentLength) + " byte file size\n");
             }
 
             if (line.startsWith("Content-Type: "))
             {
                 String contentType = getHeaderValue(line, "Content-Type: ");
-                Serial.println("\n              ...Server indicates correct " + contentType + " payload.\n");
+                consolePrintln("\n              ...Server indicates correct " + contentType + " payload.\n");
                 if (contentType == "application/octet-stream")
                 {
                     isValidContentType = true;
@@ -564,11 +565,11 @@ void WiFiManager::attemptOTAUpdate()
     else
     {
         // Connect to remote failed
-        Serial.println("Connection to " + String(host) + " failed. Please check your setup!");
+        consolePrintln("Connection to " + String(host) + " failed. Please check your setup!");
     }
 
     // Check what is the contentLength and if content type is `application/octet-stream`
-    // Serial.println("File length: " + String(contentLength) + ", Valid Content Type flag:" + String(isValidContentType));
+    // consolePrintln("File length: " + String(contentLength) + ", Valid Content Type flag:" + String(isValidContentType));
 
     // check contentLength and content type
     if (contentLength && isValidContentType) // Check if there is enough to OTA Update
@@ -576,33 +577,33 @@ void WiFiManager::attemptOTAUpdate()
         bool canBegin = Update.begin(contentLength);
         if (canBegin)
         {
-            Serial.println("There is sufficient space to update. Beginning update. \n");
+            consolePrintln("There is sufficient space to update. Beginning update. \n");
             size_t written = Update.writeStream(wifiClient);
 
             if (written == contentLength)
             {
-                Serial.println("\nWrote " + String(written) + " bytes to memory...");
+                consolePrintln("\nWrote " + String(written) + " bytes to memory...");
             }
             else
             {
-                Serial.println("\n********** FAILED - Wrote:" + String(written) + " of " + String(contentLength) + ". Try again later. ********\n\n");
+                consolePrintln("\n********** FAILED - Wrote:" + String(written) + " of " + String(contentLength) + ". Try again later. ********\n\n");
                 return;
             }
 
             if (Update.end())
             {
-                //  Serial.println("OTA file transfer completed!");
+                //  consolePrintln("OTA file transfer completed!");
                 if (Update.isFinished())
                 {
-                    Serial.println("Rebooting new firmware...\n");
+                    consolePrintln("Rebooting new firmware...\n");
                     ESP.restart();
                 }
                 else
-                    Serial.println("FAILED...update not finished? Something went wrong!");
+                    consolePrintln("FAILED...update not finished? Something went wrong!");
             }
             else
             {
-                Serial.println("Error Occurred. Error #: " + String(Update.getError()));
+                consolePrintln("Error Occurred. Error #: " + String(Update.getError()));
                 return;
             }
         } // end if can begin
@@ -611,13 +612,13 @@ void WiFiManager::attemptOTAUpdate()
             // not enough space to begin OTA
             // Understand the partitions and space availability
 
-            Serial.println("Not enough space to begin OTA");
+            consolePrintln("Not enough space to begin OTA");
             wifiClient.clear();
         }
     } // End contentLength && isValidContentType
     else
     {
-        Serial.println("There was no content in the response");
+        consolePrintln("There was no content in the response");
         wifiClient.clear();
     }
 }

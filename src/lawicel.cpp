@@ -7,6 +7,7 @@ Implements the lawicel protocol.
 #include <esp32_can.h>
 #include "utility.h"
 #include "debug.h"
+#include "console_io.h"
 
 void LAWICELHandler::handleShortCmd(char cmd)
 {
@@ -46,22 +47,22 @@ void LAWICELHandler::handleShortCmd(char cmd)
         Serial.write(13);
         break;
     case 'V': // LAWICEL - get version number
-        Serial.print("V1013\n");
+        consolePrint("V1013\n");
         SysSettings.lawicelMode = true;
         break;
     case 'N': // LAWICEL - get serial number
-        Serial.print("ESP32RET\n");
+        consolePrint("ESP32RET\n");
         SysSettings.lawicelMode = true;
         break;
     case 'x':
         SysSettings.lawicellExtendedMode = !SysSettings.lawicellExtendedMode;
         if (SysSettings.lawicellExtendedMode)
         {
-            Serial.print("V2\n");
+            consolePrint("V2\n");
         }
         else
         {
-            Serial.print("LAWICEL\n");
+            consolePrint("LAWICEL\n");
         }
         break;
     case 'B': // LAWICEL V2 - Output list of supported buses
@@ -319,13 +320,13 @@ void LAWICELHandler::printBusName(int bus)
     switch (bus)
     {
     case 0:
-        Serial.print("CAN0");
+        consolePrint("CAN0");
         break;
-    // case 1:
-    //     Serial.print("CAN1");
-    //     break;
+    case 1:
+        consolePrint("CAN1");
+        break;
     default:
-        Serial.print("UNKNOWN");
+        consolePrint("[LAWICEL] UNKNOWN BUS");
         break;
     }
 }

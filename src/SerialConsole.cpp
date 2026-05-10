@@ -38,6 +38,7 @@
 #include "can_manager.h"
 #include "Logger.h"
 #include "debug.h"
+#include "console_io.h"
 
 extern void CANHandler();
 
@@ -57,24 +58,24 @@ void SerialConsole::printMenu()
 {
     char buff[80];
     // Show build # here as well in case people are using the native port and don't get to see the start up messages
-    Serial.print("Build number: ");
-    Serial.println(CFG_BUILD_NUM);
-    Serial.println("System Menu:");
-    Serial.println();
-    Serial.println("Enable line endings of some sort (LF, CR, CRLF)");
-    Serial.println();
-    Serial.println("Short Commands:");
-    Serial.println("h = help (displays this message)");
-    Serial.println("R = reset to factory defaults");
-    Serial.println("s = Start logging to file");
-    Serial.println("S = Stop logging to file");
-    Serial.println();
-    Serial.println("Config Commands (enter command=newvalue). Current values shown in parenthesis:");
-    Serial.println();
+    consolePrint("Build number: ");
+    consolePrintln(CFG_BUILD_NUM);
+    consolePrintln("System Menu:");
+    consolePrintln();
+    consolePrintln("Enable line endings of some sort (LF, CR, CRLF)");
+    consolePrintln();
+    consolePrintln("Short Commands:");
+    consolePrintln("h = help (displays this message)");
+    consolePrintln("R = reset to factory defaults");
+    consolePrintln("s = Start logging to file");
+    consolePrintln("S = Stop logging to file");
+    consolePrintln();
+    consolePrintln("Config Commands (enter command=newvalue). Current values shown in parenthesis:");
+    consolePrintln();
 
     Logger::console("SYSTYPE=%i - Set board type (0=Macchina A0, 1=EVTV ESP32 Board 2=Macchina A5)", settings.systemType);
     Logger::console("LOGLEVEL=%i - set log level (0=debug, 1=info, 2=warn, 3=error, 4=off)", settings.logLevel);
-    Serial.println();
+    consolePrintln();
 
     for (int i = 0; i < SysSettings.numBuses; i++)
     {
@@ -86,29 +87,29 @@ void SerialConsole::printMenu()
             Logger::console("CANFDMODE%i=%i - Allow FD traffic on CAN%i (0 = Disable, 1 = Enable)", i, settings.canSettings[i].fdMode, i);
         }
         Logger::console("CANLISTENONLY%i=%i - Enable/Disable Listen Only Mode (0 = Dis, 1 = En)", i, settings.canSettings[i].listenOnly);
-        Serial.println();
+        consolePrintln();
         Logger::console("CANSEND%i=ID,LEN,<BYTES SEPARATED BY COMMAS> - Ex: CAN0SEND=0x200,4,1,2,3,4", i);
-        Serial.println();
+        consolePrintln();
     }
 
     // Logger::console("MARK=<Description of what you are doing> - Set a mark in the log file about what you are about to do.");
-    // Serial.println();
+    // consolePrintln();
 
     Logger::console("BINSERIAL=%i - Enable/Disable Binary Sending of CANBus Frames to Serial (0=Dis, 1=En)", settings.useBinarySerialComm);
-    Serial.println();
+    consolePrintln();
 
     Logger::console("BTMODE=%i - Set mode for Bluetooth (0 = Off, 1 = On)", settings.enableBT);
     Logger::console("BTNAME=%s - Set advertised Bluetooth name", settings.btName);
     Logger::console("SENDBUS=%i - Set which CAN bus to send messages from ELM327 emulator", settings.sendingBus);
-    Serial.println();
+    consolePrintln();
 
     Logger::console("LAWICEL=%i - Set whether to accept LAWICEL commands (0 = Off, 1 = On)", settings.enableLawicel);
-    Serial.println();
+    consolePrintln();
 
     Logger::console("DEBUG=%i - Enable runtime debug output", debug_enabled);
     Logger::console("DEBUGSER=%i - Debug output to USB serial", debug_to_serial);
     Logger::console("DEBUG485=%i - Debug output to RS485", debug_to_rs485);
-    Serial.println();
+    consolePrintln();
 
     Logger::console("WIFIMODE=%i - Set mode for WiFi (0 = Wifi Off, 1 = Connect to AP, 2 = Create AP", settings.wifiMode);
     Logger::console("SSID=%s - Set SSID to either connect to or create", (char *)settings.SSID);
@@ -179,12 +180,12 @@ void SerialConsole::handleShortCmd()
         Logger::console("Power cycle to reset to factory defaults");
         break;
     case '~':
-        Serial.println("DEBUGGING MODE!");
+        consolePrintln("DEBUGGING MODE!");
         CAN0.setDebuggingMode(true);
         // CAN1.setDebuggingMode(true);
         break;
     case '`':
-        Serial.println("Normal mode");
+        consolePrintln("Normal mode");
         CAN0.setDebuggingMode(false);
         // CAN1.setDebuggingMode(false);
         break;
@@ -736,13 +737,13 @@ void SerialConsole::printBusName(int bus)
     switch (bus)
     {
     case 0:
-        Serial.print("CAN0");
+        consolePrint("CAN0");
         break;
-    // case 1:
-    //     Serial.print("CAN1");
-    //     break;
+    case 1:
+        consolePrint("CAN1");
+        break;
     default:
-        Serial.print("UNKNOWN");
+        consolePrint("UNKNOWN");
         break;
     }
 }

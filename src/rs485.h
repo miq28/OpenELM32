@@ -1,16 +1,19 @@
 #pragma once
+
 #include <Arduino.h>
 
-class RS485Port
+class RS485Port : public Print
 {
 public:
     void begin(uint32_t baud);
 
-    void print(const char *str);
-    void println(const char *str);
-    void printf(const char *format, ...);
+    virtual size_t write(uint8_t c) override;
+    virtual size_t write(const uint8_t *data,
+                         size_t len) override;
 
-    void write(const uint8_t *data, size_t len);
+    using Print::write;
+
+    void printf(const char *format, ...);
 
     int available();
     int read();
@@ -21,8 +24,11 @@ private:
     void setRX();
 
     void enqueue(const uint8_t *data, size_t len);
+
     static void txTask(void *param);
 };
 
 extern RS485Port RS485;
-extern int rs485_vprintf(const char *fmt, va_list args);
+
+extern int rs485_vprintf(const char *fmt,
+                         va_list args);

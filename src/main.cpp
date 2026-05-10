@@ -445,6 +445,8 @@ void loadSettings()
 
     for (int rx = 0; rx < NUM_BUSES; rx++)
         SysSettings.lawicelBusReception[rx] = true; // default to showing messages on RX
+
+    DEBUG("binarycomm=%d\n", settings.useBinarySerialComm);
 }
 
 void setup()

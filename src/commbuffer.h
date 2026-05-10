@@ -17,6 +17,9 @@ public:
     void sendByteToBuffer(uint8_t byt);
     void sendString(String str);
     void sendCharString(char *str);
+
+    bool appendFormatted(const char *fmt, ...);
+    
     void consume(size_t n);
 
     size_t flushToEndpoint(TransportEndpoint &endpoint);

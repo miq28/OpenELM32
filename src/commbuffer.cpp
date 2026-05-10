@@ -1,6 +1,8 @@
 #include "commbuffer.h"
 #include "Logger.h"
 #include "gvret_comm.h"
+#include <stdarg.h>
+#include <stdio.h>
 
 CommBuffer::CommBuffer()
 {
@@ -74,14 +76,57 @@ void CommBuffer::sendCharString(char *str)
     Logger::debug("Queued %i bytes", i);
 }
 
+bool CommBuffer::appendFormatted(const char *fmt, ...)
+{
+    if (transmitBufferLength >= WIFI_BUFF_SIZE)
+    {
+        return false;
+    }
+
+    va_list args;
+
+    va_start(args, fmt);
+
+    int written = vsnprintf(
+        (char *)&transmitBuffer[transmitBufferLength],
+        WIFI_BUFF_SIZE - transmitBufferLength,
+        fmt,
+        args);
+
+    va_end(args);
+
+    if (written < 0)
+    {
+        return false;
+    }
+
+    if (written >= (WIFI_BUFF_SIZE - transmitBufferLength))
+    {
+        transmitBufferLength = WIFI_BUFF_SIZE;
+        return false;
+    }
+
+    transmitBufferLength += written;
+
+    return true;
+}
+
 void CommBuffer::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
 {
     uint8_t temp;
     size_t writtenBytes;
     if (settings.useBinarySerialComm)
     {
+        size_t needed = 12 + frame.length;
+
+        if (!hasSpace(needed))
+        {
+            return;
+        }
+
         if (frame.extended)
             frame.id |= 1 << 31;
+
         transmitBuffer[transmitBufferLength++] = 0xF1;
         transmitBuffer[transmitBufferLength++] = 0; // 0 = canbus frame sending
         uint32_t now = micros();
@@ -105,22 +150,14 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
     }
     else
     {
-        writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%d - %x", micros(), frame.id);
-        transmitBufferLength += writtenBytes;
-        if (frame.extended)
-            sprintf((char *)&transmitBuffer[transmitBufferLength], " X ");
-        else
-            sprintf((char *)&transmitBuffer[transmitBufferLength], " S ");
-        transmitBufferLength += 3;
-        writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%i %i", whichBus, frame.length);
-        transmitBufferLength += writtenBytes;
+        appendFormatted("%d - %x", micros(), frame.id);
+        appendFormatted(frame.extended ? " X " : " S ");
+        appendFormatted("%i %i", whichBus, frame.length);
         for (int c = 0; c < frame.length; c++)
         {
-            writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], " %x", frame.data.uint8[c]);
-            transmitBufferLength += writtenBytes;
+            appendFormatted(" %x", frame.data.uint8[c]);
         }
-        sprintf((char *)&transmitBuffer[transmitBufferLength], "\r\n");
-        transmitBufferLength += 2;
+        appendFormatted("\r\n");
     }
 }
 
@@ -130,8 +167,15 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
     size_t writtenBytes;
     if (settings.useBinarySerialComm)
     {
+        size_t needed = 13 + frame.length;
+
+        if (!hasSpace(needed))
+        {
+            return;
+        }
         if (frame.extended)
             frame.id |= 1 << 31;
+
         transmitBuffer[transmitBufferLength++] = 0xF1;
         transmitBuffer[transmitBufferLength++] = PROTO_BUILD_FD_FRAME;
         uint32_t now = micros();
@@ -156,22 +200,14 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
     }
     else
     {
-        writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%d - %x", micros(), frame.id);
-        transmitBufferLength += writtenBytes;
-        if (frame.extended)
-            sprintf((char *)&transmitBuffer[transmitBufferLength], " X ");
-        else
-            sprintf((char *)&transmitBuffer[transmitBufferLength], " S ");
-        transmitBufferLength += 3;
-        writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], "%i %i", whichBus, frame.length);
-        transmitBufferLength += writtenBytes;
+        appendFormatted("%d - %x", micros(), frame.id);
+        appendFormatted(frame.extended ? " X " : " S ");
+        appendFormatted("%i %i", whichBus, frame.length);
         for (int c = 0; c < frame.length; c++)
         {
-            writtenBytes = sprintf((char *)&transmitBuffer[transmitBufferLength], " %x", frame.data.uint8[c]);
-            transmitBufferLength += writtenBytes;
+            appendFormatted(" %x", frame.data.uint8[c]);
         }
-        sprintf((char *)&transmitBuffer[transmitBufferLength], "\r\n");
-        transmitBufferLength += 2;
+        appendFormatted("\r\n");
     }
 }
 

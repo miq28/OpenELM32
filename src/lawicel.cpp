@@ -8,13 +8,64 @@ Implements the lawicel protocol.
 #include "utility.h"
 #include "debug.h"
 #include "console_io.h"
+#include "commbuffer.h"
 
-void LAWICELHandler::setOutput(Stream *s)
+static inline void lawicelWrite(const char *s, CommBuffer *buf)
 {
-    if (s)
-    {
-        output = s;
-    }
+    if (!buf || !s)
+        return;
+
+    buf->sendBytesToBuffer(
+        (uint8_t *)s,
+        strlen(s));
+}
+
+static inline void lawicelWriteCR(CommBuffer *buf)
+{
+    if (!buf)
+        return;
+
+    uint8_t cr = 13;
+
+    buf->sendByteToBuffer(cr);
+}
+
+static inline void lawicelWriteHex(uint32_t value,
+                                   CommBuffer *buf,
+                                   bool upper = true)
+{
+    if (!buf)
+        return;
+
+    char temp[16];
+
+    snprintf(temp,
+             sizeof(temp),
+             upper ? "%X" : "%x",
+             value);
+
+    lawicelWrite(temp, buf);
+}
+
+static inline void lawicelWriteUInt(uint32_t value,
+                                    CommBuffer *buf)
+{
+    if (!buf)
+        return;
+
+    char temp[16];
+
+    snprintf(temp,
+             sizeof(temp),
+             "%lu",
+             (unsigned long)value);
+
+    lawicelWrite(temp, buf);
+}
+
+void LAWICELHandler::setOutputBuffer(CommBuffer *buf)
+{
+    outputBuffer = buf;
 }
 
 void LAWICELHandler::handleShortCmd(char cmd)
@@ -25,52 +76,52 @@ void LAWICELHandler::handleShortCmd(char cmd)
         CAN0.setListenOnlyMode(false);
         CAN0.begin(settings.canSettings[0].nomSpeed, 255);
         CAN0.enable();
-        output->write(13); // send CR to mean "ok"
+        lawicelWriteCR(outputBuffer); // send CR to mean "ok"
         SysSettings.lawicelMode = true;
         break;
     case 'C': // LAWICEL close canbus port (First one)
         CAN0.disable();
-        output->write(13); // send CR to mean "ok"
+        lawicelWriteCR(outputBuffer); // send CR to mean "ok"
         break;
     case 'L': // LAWICEL open canbus port in listen only mode
         CAN0.setListenOnlyMode(true);
         CAN0.begin(settings.canSettings[0].nomSpeed, 255);
         CAN0.enable();
-        output->write(13); // send CR to mean "ok"
+        lawicelWriteCR(outputBuffer); // send CR to mean "ok"
         SysSettings.lawicelMode = true;
         break;
     case 'P': // LAWICEL - poll for one waiting frame. Or, just CR if no frames
         if (CAN0.available())
             SysSettings.lawicelPollCounter = 1;
         else
-            output->write(13); // no waiting frames
+            lawicelWriteCR(outputBuffer); // no waiting frames
         break;
     case 'A': // LAWICEL - poll for all waiting frames - CR if no frames
         SysSettings.lawicelPollCounter = CAN0.available();
         if (SysSettings.lawicelPollCounter == 0)
-            output->write(13);
+            lawicelWriteCR(outputBuffer);
         break;
-    case 'F':                // LAWICEL - read status bits
-        output->print("F00"); // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error warning, 3 = Data overrun, 5= Error passive, 6 = Arb. Lost, 7 = Bus Error
-        output->write(13);
+    case 'F':                              // LAWICEL - read status bits
+        lawicelWrite("F00", outputBuffer); // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error warning, 3 = Data overrun, 5= Error passive, 6 = Arb. Lost, 7 = Bus Error
+        lawicelWriteCR(outputBuffer);
         break;
     case 'V': // LAWICEL - get version number
-        output->print("V1013\n");
+        lawicelWrite("V1013\r", outputBuffer);
         SysSettings.lawicelMode = true;
         break;
     case 'N': // LAWICEL - get serial number
-        output->print("ESP32RET\n");
+        lawicelWrite("ESP32RET\r", outputBuffer);
         SysSettings.lawicelMode = true;
         break;
     case 'x':
         SysSettings.lawicellExtendedMode = !SysSettings.lawicellExtendedMode;
         if (SysSettings.lawicellExtendedMode)
         {
-            output->print("V2\n");
+            lawicelWrite("V2\r", outputBuffer);
         }
         else
         {
-            output->print("LAWICEL\n");
+            lawicelWrite("LAWICEL\r", outputBuffer);
         }
         break;
     case 'B': // LAWICEL V2 - Output list of supported buses
@@ -79,7 +130,7 @@ void LAWICELHandler::handleShortCmd(char cmd)
             for (int i = 0; i < NUM_BUSES; i++)
             {
                 printBusName(i);
-                output->print("\n");
+                lawicelWrite("\r", outputBuffer);
             }
         }
         break;
@@ -115,7 +166,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         }
         CAN0.sendFrame(outFrame);
         if (SysSettings.lawicelAutoPoll)
-            output->print("z");
+            lawicelWrite("z", outputBuffer);
         break;
     case 'T': // transmit extended frame
         outFrame.id = Utility::parseHexString(buffer + 1, 8);
@@ -131,7 +182,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         }
         CAN0.sendFrame(outFrame);
         if (SysSettings.lawicelAutoPoll)
-            output->print("Z");
+            lawicelWrite("Z", outputBuffer);
         break;
     case 'S':
         if (!SysSettings.lawicellExtendedMode)
@@ -284,7 +335,7 @@ void LAWICELHandler::handleLongCmd(char *buffer)
         }
         break;
     }
-    output->write(13);
+    lawicelWriteCR(outputBuffer);
 }
 
 // Tokenize cmdBuffer on space boundaries - up to 10 tokens supported
@@ -328,13 +379,13 @@ void LAWICELHandler::printBusName(int bus)
     switch (bus)
     {
     case 0:
-        output->print("CAN0");
+        lawicelWrite("CAN0", outputBuffer);
         break;
     case 1:
-        output->print("CAN1");
+        lawicelWrite("CAN1", outputBuffer);
         break;
     default:
-        output->print("UNKNOWN");
+        lawicelWrite("UNKNOWN", outputBuffer);
         break;
     }
 }
@@ -366,47 +417,47 @@ void LAWICELHandler::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
 
     if (SysSettings.lawicellExtendedMode)
     {
-        output->print(micros());
-        output->print(" - ");
-        output->print(frame.id, HEX);
+        lawicelWriteUInt(micros(), outputBuffer);
+        lawicelWrite(" - ", outputBuffer);
+        lawicelWriteHex(frame.id, outputBuffer);
         if (frame.extended)
-            output->print(" X ");
+            lawicelWrite(" X ", outputBuffer);
         else
-            output->print(" S ");
+            lawicelWrite(" S ", outputBuffer);
 
         printBusName(whichBus);
         for (int d = 0; d < frame.length; d++)
         {
-            output->print(" ");
-            output->print(frame.data.uint8[d], HEX);
+            lawicelWrite(" ", outputBuffer);
+            lawicelWriteHex(frame.data.uint8[d], outputBuffer);
         }
     }
     else
     {
         if (frame.extended)
         {
-            output->print("T");
-            sprintf((char *)buff, "%08x", frame.id);
-            output->print((char *)buff);
+            lawicelWrite("T", outputBuffer);
+            snprintf((char *)buff, sizeof(buff), "%08x", frame.id);
+            lawicelWrite((char *)buff, outputBuffer);
         }
         else
         {
-            output->print("t");
-            sprintf((char *)buff, "%03x", frame.id);
-            output->print((char *)buff);
+            lawicelWrite("t", outputBuffer);
+            snprintf((char *)buff, sizeof(buff), "%03x", frame.id);
+            lawicelWrite((char *)buff, outputBuffer);
         }
-        output->print(frame.length);
+        lawicelWriteUInt(frame.length, outputBuffer);
         for (int i = 0; i < frame.length; i++)
         {
-            sprintf((char *)buff, "%02x", frame.data.uint8[i]);
-            output->print((char *)buff);
+            snprintf((char *)buff, sizeof(buff), "%02x", frame.data.uint8[i]);
+            lawicelWrite((char *)buff, outputBuffer);
         }
         if (SysSettings.lawicelTimestamping)
         {
             uint16_t timestamp = (uint16_t)millis();
-            sprintf((char *)buff, "%04x", timestamp);
-            output->print((char *)buff);
+            snprintf((char *)buff, sizeof(buff), "%04x", timestamp);
+            lawicelWrite((char *)buff, outputBuffer);
         }
     }
-    output->write(13);
+    lawicelWriteCR(outputBuffer);
 }

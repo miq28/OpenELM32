@@ -255,6 +255,8 @@ void loadSettings()
     gvretUSB.setBuffer(&usbTxBuffer);
     gvretTCP.setBuffer(&tcpTxBuffer);
 
+    lawicel.setOutputBuffer(&usbTxBuffer);
+
 #if defined(WEACT_STUDIO_CAN485_V1)
 #define BASE_DEVICE_NAME "WEACT_CAN485"
 // #elif defined(WAVESHARE_ESP32_S3_RS485_CAN)

@@ -3,17 +3,18 @@
 #include <Arduino.h>
 
 class CAN_FRAME;
+class CommBuffer;
 
 class LAWICELHandler
 {
 public:
-    void setOutput(Stream *s);
+    void setOutputBuffer(CommBuffer *buf);
     void handleLongCmd(char *buffer);
     void handleShortCmd(char cmd);
     void sendFrameToBuffer(CAN_FRAME &frame, int whichBus);
 
 private:
-    Stream *output = &Serial;
+    CommBuffer *outputBuffer = nullptr;
     char tokens[14][10];
 
     void tokenizeCmdString(char *buff);

@@ -176,6 +176,9 @@ void CANManager::loop()
     static uint32_t rxFullCount = 0;
     static uint32_t lastStats = 0;
 
+    static uint32_t prevUsbDrops = 0;
+    static uint32_t prevTcpDrops = 0;
+
     size_t maxLength = getOutputBacklog(sendToConsole);
 
     for (int i = 0; i < SysSettings.numBuses; i++)
@@ -288,9 +291,23 @@ void CANManager::loop()
         uint32_t mins = (uptimeSec % 3600) / 60;
         uint32_t secs = uptimeSec % 60;
 
-        DEBUG("[CAN STAT] in:%lu fps out:%lu fps rxqovf:%lu/s wifi:%u tx:%lu KB/s heap:%u up:%02lu:%02lu:%02lu\n",
+        // ===== monitor commbuffer drops ====
+        uint32_t usbDrops = usbTxBuffer.getDroppedFrames();
+
+        uint32_t tcpDrops = tcpTxBuffer.getDroppedFrames();
+
+        uint32_t usbDropRate = usbDrops - prevUsbDrops;
+
+        uint32_t tcpDropRate = tcpDrops - prevTcpDrops;
+
+        prevUsbDrops = usbDrops;
+        prevTcpDrops = tcpDrops;
+
+        DEBUG("[CAN STAT] in:%lu fps out:%lu fps usbDrop:%lu/s tcpDrop:%lu/s rxqovf:%lu/s wifi:%u tx:%lu KB/s heap:%u up:%02lu:%02lu:%02lu\n",
               fpsIn,
               fpsOut,
+              usbDropRate,
+              tcpDropRate,
               rxFullCount,
               tcpTxBuffer.numAvailableBytes(),
               wifiKBs,

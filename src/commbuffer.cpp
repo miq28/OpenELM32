@@ -102,6 +102,8 @@ bool CommBuffer::appendFormatted(const char *fmt, ...)
 
     if (written >= (WIFI_BUFF_SIZE - transmitBufferLength))
     {
+        overflowEvents++;
+        
         transmitBufferLength = WIFI_BUFF_SIZE;
         return false;
     }
@@ -121,6 +123,9 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
 
         if (!hasSpace(needed))
         {
+            droppedFrames++;
+            overflowEvents++;
+
             return;
         }
 
@@ -171,6 +176,9 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
 
         if (!hasSpace(needed))
         {
+            droppedFrames++;
+            overflowEvents++;
+            
             return;
         }
         if (frame.extended)
@@ -254,4 +262,14 @@ size_t CommBuffer::flushToEndpoint(TransportEndpoint &endpoint)
 bool CommBuffer::hasSpace(size_t needed)
 {
     return (transmitBufferLength + needed) <= WIFI_BUFF_SIZE;
+}
+
+uint32_t CommBuffer::getDroppedFrames()
+{
+    return droppedFrames;
+}
+
+uint32_t CommBuffer::getOverflowEvents()
+{
+    return overflowEvents;
 }

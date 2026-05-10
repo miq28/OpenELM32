@@ -19,13 +19,20 @@ public:
     void sendCharString(char *str);
 
     bool appendFormatted(const char *fmt, ...);
-    
+
     void consume(size_t n);
 
     size_t flushToEndpoint(TransportEndpoint &endpoint);
 
     bool hasSpace(size_t needed);
+
+    uint32_t getDroppedFrames();
+    uint32_t getOverflowEvents();
+
 protected:
     byte transmitBuffer[WIFI_BUFF_SIZE];
     int transmitBufferLength; // not creating a ring buffer. The buffer should be large enough to never overflow
+
+    uint32_t droppedFrames = 0;
+    uint32_t overflowEvents = 0;
 };

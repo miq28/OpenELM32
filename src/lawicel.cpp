@@ -55,22 +55,22 @@ void LAWICELHandler::handleShortCmd(char cmd)
         output->write(13);
         break;
     case 'V': // LAWICEL - get version number
-        consolePrint("V1013\n");
+        output->print("V1013\n");
         SysSettings.lawicelMode = true;
         break;
     case 'N': // LAWICEL - get serial number
-        consolePrint("ESP32RET\n");
+        output->print("ESP32RET\n");
         SysSettings.lawicelMode = true;
         break;
     case 'x':
         SysSettings.lawicellExtendedMode = !SysSettings.lawicellExtendedMode;
         if (SysSettings.lawicellExtendedMode)
         {
-            consolePrint("V2\n");
+            output->print("V2\n");
         }
         else
         {
-            consolePrint("LAWICEL\n");
+            output->print("LAWICEL\n");
         }
         break;
     case 'B': // LAWICEL V2 - Output list of supported buses
@@ -328,13 +328,13 @@ void LAWICELHandler::printBusName(int bus)
     switch (bus)
     {
     case 0:
-        consolePrint("CAN0");
+        output->print("CAN0");
         break;
     case 1:
-        consolePrint("CAN1");
+        output->print("CAN1");
         break;
     default:
-        consolePrint("[LAWICEL] UNKNOWN BUS");
+        output->print("UNKNOWN");
         break;
     }
 }

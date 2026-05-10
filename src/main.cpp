@@ -168,12 +168,13 @@ ELM327Emu elmEmulator;
 
 WiFiManager wifiManager;
 
-CommBuffer serialBuffer;
-CommBuffer wifiBuffer;
+CommBuffer usbTxBuffer;
+CommBuffer tcpTxBuffer;
 
-GVRET_Comm_Handler serialGVRET; // gvret protocol over the serial to USB connection
-GVRET_Comm_Handler wifiGVRET;   // GVRET over the wifi telnet port
-CANManager canManager;          // keeps track of bus load and abstracts away some details of how things are done
+GVRET_Comm_Handler gvretUSB;
+GVRET_Comm_Handler gvretTCP;
+
+CANManager canManager; // keeps track of bus load and abstracts away some details of how things are done
 LAWICELHandler lawicel;
 
 SerialConsole console;
@@ -251,8 +252,8 @@ void loadSettings()
 {
     Logger::console("Loading settings....");
 
-    serialGVRET.setBuffer(&serialBuffer);
-    wifiGVRET.setBuffer(&wifiBuffer);
+    gvretUSB.setBuffer(&usbTxBuffer);
+    gvretTCP.setBuffer(&tcpTxBuffer);
 
 #if defined(WEACT_STUDIO_CAN485_V1)
 #define BASE_DEVICE_NAME "WEACT_CAN485"
@@ -562,21 +563,21 @@ void loop()
     canManager.loop();
     /*if (!settings.enableBT)*/ wifiManager.loop();
 
-    size_t wifiLength = wifiBuffer.numAvailableBytes();
-    size_t serialLength = serialBuffer.numAvailableBytes();
-    size_t maxLength = (wifiLength > serialLength) ? wifiLength : serialLength;
+    size_t tcpLength = tcpTxBuffer.numAvailableBytes();
+    size_t usbLength = usbTxBuffer.numAvailableBytes();
+    size_t maxLength = (tcpLength > usbLength) ? tcpLength : usbLength;
 
     // If the max time has passed or the buffer is almost filled then send buffered data out
     if ((micros() - lastFlushMicros > SER_BUFF_FLUSH_INTERVAL) || (maxLength > (WIFI_BUFF_SIZE - 40)))
     {
         lastFlushMicros = micros();
-        if (serialLength > 0)
+        if (usbLength > 0)
         {
             TransportEndpoint endpoint(&Serial);
 
-            serialBuffer.flushToEndpoint(endpoint);
+            usbTxBuffer.flushToEndpoint(endpoint);
         }
-        if (wifiLength > 0)
+        if (tcpLength > 0)
         {
             wifiManager.sendBufferedData();
         }
@@ -591,7 +592,7 @@ void loop()
 
         in_byte = Serial.read();
 
-        serialGVRET.processIncomingByte(in_byte);
+        gvretUSB.processIncomingByte(in_byte);
     }
 
     // ===== RS485 INPUT =====
@@ -603,7 +604,7 @@ void loop()
 
         in_byte = RS485.read();
 
-        serialGVRET.processIncomingByte(in_byte);
+        gvretUSB.processIncomingByte(in_byte);
     }
 
     rgbStatusLoop();

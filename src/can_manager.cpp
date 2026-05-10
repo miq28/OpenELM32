@@ -49,12 +49,12 @@ static inline size_t getOutputBacklog(bool sendToConsole)
 {
     size_t wifiLength =
         hasWifiClientConnected()
-            ? wifiBuffer.numAvailableBytes()
+            ? tcpTxBuffer.numAvailableBytes()
             : 0;
 
     size_t serialLength =
         sendToConsole
-            ? serialBuffer.numAvailableBytes()
+            ? usbTxBuffer.numAvailableBytes()
             : 0;
 
     return (wifiLength > serialLength)
@@ -136,11 +136,11 @@ void CANManager::displayFrame(CAN_FRAME &frame, int whichBus)
     {
         if (hasWifiClientConnected())
         {
-            wifiBuffer.sendFrameToBuffer(frame, whichBus);
+            tcpTxBuffer.sendFrameToBuffer(frame, whichBus);
         }
         else if (sendToConsole)
         {
-            serialBuffer.sendFrameToBuffer(frame, whichBus);
+            usbTxBuffer.sendFrameToBuffer(frame, whichBus);
         }
     }
 }
@@ -156,11 +156,11 @@ void CANManager::displayFrame(CAN_FRAME_FD &frame, int whichBus)
     {
         if (hasWifiClientConnected())
         {
-            wifiBuffer.sendFrameToBuffer(frame, whichBus);
+            tcpTxBuffer.sendFrameToBuffer(frame, whichBus);
         }
         else if (sendToConsole)
         {
-            serialBuffer.sendFrameToBuffer(frame, whichBus);
+            usbTxBuffer.sendFrameToBuffer(frame, whichBus);
         }
     }
 }
@@ -292,7 +292,7 @@ void CANManager::loop()
               fpsIn,
               fpsOut,
               rxFullCount,
-              wifiBuffer.numAvailableBytes(),
+              tcpTxBuffer.numAvailableBytes(),
               wifiKBs,
               ESP.getFreeHeap(),
               hrs,

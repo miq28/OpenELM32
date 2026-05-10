@@ -223,8 +223,8 @@ class ELM327Emu;
 extern EEPROMSettings settings;
 extern SystemSettings SysSettings;
 extern Preferences prefs;
-extern GVRET_Comm_Handler serialGVRET;
-extern GVRET_Comm_Handler wifiGVRET;
+extern GVRET_Comm_Handler gvretUSB;
+extern GVRET_Comm_Handler gvretTCP;
 extern SerialConsole console;
 extern CANManager canManager;
 extern LAWICELHandler lawicel;
@@ -234,8 +234,8 @@ extern char otaHost[40];
 extern char otaFilename[100];
 extern CAN_COMMON *canBuses[NUM_BUSES];
 
-extern CommBuffer serialBuffer;
-extern CommBuffer wifiBuffer;
+extern CommBuffer usbTxBuffer;
+extern CommBuffer tcpTxBuffer;
 
 extern volatile uint32_t wifiBytesSent;
 

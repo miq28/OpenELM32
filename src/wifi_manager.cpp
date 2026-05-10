@@ -325,7 +325,7 @@ void WiFiManager::loop()
                         inByt = SysSettings.clientNodes[i].read();
                         SysSettings.isWifiActive = true;
                         // Serial.write(inByt); //echo to serial - just for debugging. Don't leave this on!
-                        wifiGVRET.processIncomingByte(inByt);
+                        gvretTCP.processIncomingByte(inByt);
                     }
                 }
             }
@@ -348,7 +348,7 @@ void WiFiManager::loop()
                         uint8_t inByt;
                         inByt = SysSettings.wifiOBDClients[i].read();
                         SysSettings.isWifiActive = true;
-                        //wifiGVRET.processIncomingByte(inByt);
+                        // gvretTCP.processIncomingByte(inByt);
                     }
                 }*/
             }
@@ -398,7 +398,7 @@ void WiFiManager::sendBufferedData()
               ESP.getFreeHeap(),
               heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
               heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-              wifiBuffer.numAvailableBytes());
+              tcpTxBuffer.numAvailableBytes());
     }
 
     // ===== SAFEGUARD #1: heap =====
@@ -406,10 +406,10 @@ void WiFiManager::sendBufferedData()
         return;
 
     // ===== SAFEGUARD #2: backlog =====
-    if (wifiBuffer.numAvailableBytes() >= WIFI_BUFF_SIZE)
+    if (tcpTxBuffer.numAvailableBytes() >= WIFI_BUFF_SIZE)
     {
         DEBUG("[WARN] buffer overflow protection, dropping\n");
-        wifiBuffer.clearBufferedBytes();
+        tcpTxBuffer.clearBufferedBytes();
         return;
     }
 
@@ -429,14 +429,14 @@ void WiFiManager::sendBufferedData()
         if (!(SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected()))
             continue;
 
-        size_t available = wifiBuffer.numAvailableBytes();
+        size_t available = tcpTxBuffer.numAvailableBytes();
         if (available == 0)
             return;
 
         TransportEndpoint endpoint(&SysSettings.clientNodes[i]);
 
         size_t sent =
-            wifiBuffer.flushToEndpoint(endpoint);
+            tcpTxBuffer.flushToEndpoint(endpoint);
 
         if (sent > 0)
         {

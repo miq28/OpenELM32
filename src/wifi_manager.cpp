@@ -86,10 +86,33 @@ static void initOTAHandlers()
         .onEnd([]()
                { consolePrintln("\nEnd"); })
         .onProgress([](unsigned int progress, unsigned int total)
-                    { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); })
+                    {
+            const int barWidth = 40;
+
+            float percent = (float)progress * 100.0f / (float)total;
+            int pos = (int)(barWidth * percent / 100.0f);
+
+            consolePrintf("\r[");
+
+            for (int i = 0; i < barWidth; i++)
+            {
+                if (i < pos)
+                    consolePrintf("=");
+                else if (i == pos)
+                    consolePrintf(">");
+                else
+                    consolePrintf(" ");
+            }
+
+            consolePrintf("] %.2f%%", percent);
+
+            fflush(stdout);
+
+            if (progress >= total)
+                consolePrintf("\n"); })
         .onError([](ota_error_t error)
                  {
-                      Serial.printf("Error[%u]: ", error);
+                      consolePrintf("Error[%u]: ", error);
                       if (error == OTA_AUTH_ERROR) consolePrintln("Auth Failed");
                       else if (error == OTA_BEGIN_ERROR) consolePrintln("Begin Failed");
                       else if (error == OTA_CONNECT_ERROR) consolePrintln("Connect Failed");
@@ -197,11 +220,7 @@ void WiFiManager::setup()
         delay(100);
 
         // set hostname on AP netif
-        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
-        if (netif)
-        {
-            esp_netif_set_hostname(netif, deviceName);
-        }
+        setHostnameEarly(deviceName);
         WiFi.setHostname(deviceName);
         WiFi.setSleep(false);
         WiFi.softAP(settings.AP_SSID, settings.AP_PASS);
@@ -469,8 +488,8 @@ void onOTAProgress(uint32_t progress, size_t fullSize)
     }
     else
     {
-        Serial.print("...");
-        Serial.print(progress);
+        consolePrint("...");
+        consolePrint(progress);
     }
 }
 

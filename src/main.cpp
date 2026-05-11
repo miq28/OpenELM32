@@ -158,7 +158,7 @@ uint32_t lastMarkTrigger = 0;
 EEPROMSettings settings;
 SystemSettings SysSettings;
 Preferences prefs;
-char deviceName[20];
+char deviceName[32];
 char otaHost[40];
 char otaFilename[100];
 
@@ -268,6 +268,8 @@ void loadSettings()
 
     buildDeviceName(deviceName, sizeof(deviceName), BASE_DEVICE_NAME);
 
+    DEBUG("deviceName=%s\n", deviceName);
+
     // Logger::console("%i\n", espChipRevision);
 
     for (int i = 0; i < NUM_BUSES; i++)
@@ -334,7 +336,7 @@ void loadSettings()
     SysSettings.numBuses = NUM_BUSES;
     SysSettings.isWifiActive = false;
     SysSettings.isWifiConnected = false;
-    strcpy(deviceName, "WEACT_CAN485");
+    // strcpy(deviceName, "WEACT_CAN485");
     strcpy(otaHost, "media3.evtv.me");
     strcpy(otaFilename, "/weact_can485.bin");
 #elif CONFIG_IDF_TARGET_ESP32
@@ -446,6 +448,7 @@ void loadSettings()
     for (int rx = 0; rx < NUM_BUSES; rx++)
         SysSettings.lawicelBusReception[rx] = true; // default to showing messages on RX
 
+    DEBUG("deviceName=%s\n", deviceName);
     DEBUG("binarycomm=%d\n", settings.useBinarySerialComm);
 }
 

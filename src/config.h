@@ -229,7 +229,7 @@ extern SerialConsole console;
 extern CANManager canManager;
 extern LAWICELHandler lawicel;
 extern ELM327Emu elmEmulator;
-extern char deviceName[20];
+extern char deviceName[32];
 extern char otaHost[40];
 extern char otaFilename[100];
 extern CAN_COMMON *canBuses[NUM_BUSES];

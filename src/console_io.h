@@ -6,40 +6,34 @@
 
 // ===== PRINT =====
 
-template<typename T>
+template <typename T>
 static inline void consolePrint(const T &v)
 {
-    Serial.print(v);
-
+    if (debug_to_serial)
+        Serial.print(v);
     if (debug_to_rs485)
-    {
         RS485.print(v);
-    }
 }
 
 // ===== PRINTLN WITH VALUE =====
 
-template<typename T>
+template <typename T>
 static inline void consolePrintln(const T &v)
 {
-    Serial.println(v);
-
+    if (debug_to_serial)
+        Serial.println(v);
     if (debug_to_rs485)
-    {
         RS485.println(v);
-    }
 }
 
 // ===== EMPTY PRINTLN =====
 
 static inline void consolePrintln()
 {
-    Serial.println();
-
+    if (debug_to_serial)
+        Serial.println();
     if (debug_to_rs485)
-    {
-        RS485.println("");
-    }
+        RS485.println();
 }
 
 // ===== PRINTF =====
@@ -56,22 +50,18 @@ static inline void consolePrintf(const char *fmt, ...)
 
     va_end(args);
 
-    Serial.print(buf);
-
+    if (debug_to_serial)
+        Serial.print(buf);
     if (debug_to_rs485)
-    {
         RS485.print(buf);
-    }
 }
 
 // ===== WRITE SINGLE BYTE =====
 
 static inline void consoleWrite(uint8_t c)
 {
-    Serial.write(c);
-
+    if (debug_to_serial)
+        Serial.write(c);
     if (debug_to_rs485)
-    {
         RS485.write(c);
-    }
 }

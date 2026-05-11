@@ -40,6 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "esp_flash.h"
 #include "Logger.h"
 #include "rgb_status.h"
+#include "console_io.h"
 
 const char *resetReasonToStr(esp_reset_reason_t r)
 {
@@ -80,66 +81,119 @@ const char *resetReasonToStr(esp_reset_reason_t r)
     }
 }
 
+void printPrefs()
+{
+    consolePrintf("===== Preferences =====\n");
+    consolePrintf("wifiMode=%u\n", prefs.getUChar("wifiMode", 0));
+    consolePrintf("AP_SSID=%s\n", prefs.getString("AP_SSID", "").c_str());
+    consolePrintf("AP_PASS=%s\n", prefs.getString("AP_PASS", "").c_str());
+    consolePrintf("STA_SSID=%s\n", prefs.getString("STA_SSID", "").c_str());
+    consolePrintf("STA_PASS=%s\n", prefs.getString("STA_PASS", "").c_str());
+    consolePrintf("binarycomm=%d\n", prefs.getBool("binarycomm", false));
+    consolePrintf("loglevel=%u\n", prefs.getUChar("loglevel", 0));
+    consolePrintf("enable-bt=%d\n", prefs.getBool("enable-bt", false));
+    consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
+    consolePrintf("sendingBus=%d\n", prefs.getInt("sendingBus", 0));
+    consolePrintf("btname=%s\n", prefs.getString("btname", "").c_str());
+    consolePrintf("dbg_en=%d\n", prefs.getBool("dbg_en", false));
+    consolePrintf("dbg_ser=%d\n", prefs.getBool("dbg_ser", false));
+    consolePrintf("dbg_485=%d\n", prefs.getBool("dbg_485", false));
+    consolePrintf("systype=%u\n", prefs.getUChar("systype", 0));
+
+    for (int i = 0; i < SysSettings.numBuses; i++)
+    {
+        char key[32];
+
+        sprintf(key, "can%ispeed", i);
+        consolePrintf("%s=%u\n", key, prefs.getUInt(key, 0));
+
+        sprintf(key, "can%i_en", i);
+        consolePrintf("%s=%d\n", key, prefs.getBool(key, false));
+
+        sprintf(key, "can%i-listenonly", i);
+        consolePrintf("%s=%d\n", key, prefs.getBool(key, false));
+
+        sprintf(key, "can%i-fdspeed", i);
+        consolePrintf("%s=%u\n", key, prefs.getUInt(key, 0));
+
+        sprintf(key, "can%i-fdmode", i);
+        consolePrintf("%s=%d\n", key, prefs.getBool(key, false));
+    }
+
+    consolePrintf("=======================\n");
+}
+
 void checkESPBoard()
 {
     // ===== BASIC =====
-    DEBUG("SDK: %s\n", ESP.getSdkVersion());
-    DEBUG("Chip: %s Rev %u\n", ESP.getChipModel(), ESP.getChipRevision());
-    DEBUG("Cores: %u\n", ESP.getChipCores());
+    consolePrintf("SDK=%s\n", ESP.getSdkVersion());
+    consolePrintf("Chip=%s Rev %u\n", ESP.getChipModel(), ESP.getChipRevision());
+    consolePrintf("Cores=%u\n", ESP.getChipCores());
 
     // ===== CLOCK =====
-    DEBUG("CPU: %d MHz\n", getCpuFrequencyMhz());
-    DEBUG("XTAL: %d MHz\n", getXtalFrequencyMhz());
-    DEBUG("APB: %.1f MHz\n", getApbFrequency() / 1000000.0);
+    consolePrintf("CPU=%d MHz\n", getCpuFrequencyMhz());
+    consolePrintf("XTAL=%d MHz\n", getXtalFrequencyMhz());
+    consolePrintf("APB=%.1f MHz\n", getApbFrequency() / 1000000.0);
 
     // ===== MAC =====
     uint64_t mac64 = ESP.getEfuseMac();
-    // DEBUG("MAC (raw): %012llX\n", mac64);
-    DEBUG("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-          (uint8_t)(mac64 >> 40),
-          (uint8_t)(mac64 >> 32),
-          (uint8_t)(mac64 >> 24),
-          (uint8_t)(mac64 >> 16),
-          (uint8_t)(mac64 >> 8),
-          (uint8_t)(mac64 >> 0));
+
+    consolePrintf("MAC=%02X:%02X:%02X:%02X:%02X:%02X\n",
+                  (uint8_t)(mac64 >> 40),
+                  (uint8_t)(mac64 >> 32),
+                  (uint8_t)(mac64 >> 24),
+                  (uint8_t)(mac64 >> 16),
+                  (uint8_t)(mac64 >> 8),
+                  (uint8_t)(mac64 >> 0));
 
     // ===== CHIP ID (derived) =====
     uint32_t chipId = 0;
+
     for (int i = 0; i < 17; i += 8)
     {
         chipId |= ((mac64 >> (40 - i)) & 0xFF) << i;
     }
-    DEBUG("Chip ID: %u (0x%08X)\n", chipId, chipId);
+
+    consolePrintf("ChipID=%u (0x%08X)\n", chipId, chipId);
 
     // ===== FLASH =====
     uint32_t flash_id;
 
     if (esp_flash_read_id(NULL, &flash_id) == ESP_OK)
     {
-        DEBUG("FLASH ID: %06X\n", flash_id);
+        consolePrintf("FLASH_ID=%06X\n", flash_id);
     }
     else
     {
-        DEBUG("FLASH ID: read failed\n");
+        consolePrintf("FLASH_ID=read failed\n");
     }
-    DEBUG("Flash Speed: %.1f MHz\n", ESP.getFlashChipSpeed() / 1000000.0);
-    DEBUG("Flash Size: %.2f MB\n", ESP.getFlashChipSize() / (1024.0 * 1024));
-    DEBUG("Flash Mode: %d (0=QIO,1=QOUT,2=DIO,3=DOUT)\n", ESP.getFlashChipMode());
+
+    consolePrintf("FlashSpeed=%.1f MHz\n",
+                  ESP.getFlashChipSpeed() / 1000000.0);
+    consolePrintf("FlashSize=%.2f MB\n",
+                  ESP.getFlashChipSize() / (1024.0 * 1024));
+    consolePrintf("FlashMode=%d (0=QIO,1=QOUT,2=DIO,3=DOUT)\n",
+                  ESP.getFlashChipMode());
 
     // ===== RAM =====
-    DEBUG("Heap Total: %.2f KB\n", ESP.getHeapSize() / 1024.0);
-    DEBUG("Heap Free: %.2f KB\n", ESP.getFreeHeap() / 1024.0);
-    DEBUG("Heap Max Alloc: %.2f KB\n", ESP.getMaxAllocHeap() / 1024.0);
+    consolePrintf("HeapTotal=%.2f KB\n",
+                  ESP.getHeapSize() / 1024.0);
+    consolePrintf("HeapFree=%.2f KB\n",
+                  ESP.getFreeHeap() / 1024.0);
+    consolePrintf("HeapMaxAlloc=%.2f KB\n",
+                  ESP.getMaxAllocHeap() / 1024.0);
 
     // ===== PSRAM =====
     if (psramFound())
     {
-        DEBUG("PSRAM Total: %.2f KB\n", ESP.getPsramSize() / 1024.0);
-        DEBUG("PSRAM Free: %.2f KB\n", ESP.getFreePsram() / 1024.0);
+        consolePrintf("PSRAMTotal=%.2f KB\n",
+                      ESP.getPsramSize() / 1024.0);
+        consolePrintf("PSRAMFree=%.2f KB\n",
+                      ESP.getFreePsram() / 1024.0);
     }
     else
     {
-        DEBUG("PSRAM: not found\n");
+        consolePrintf("PSRAM=not found\n");
     }
 }
 
@@ -200,26 +254,11 @@ void statsTask(void *param)
             uint32_t bits = 0;
             uint32_t busPct = 0;
 
-            // if you added mutex:
-            // portENTER_CRITICAL(&busLoadMux);
-
-            // bits = busLoad[0].bitsSoFar;
-            // busPct = busLoad[0].busloadPercentage;
-
-            // portEXIT_CRITICAL(&busLoadMux);
-
-            // ---- PRINT ----
-            // DEBUG(
-            //     "[STATS] bits:%u load:%u%% freeHeap:%u\n",
-            //     bits,
-            //     busPct,
-            //     ESP.getFreeHeap());
-
             float heap_kb = esp_get_free_heap_size() / 1024.0f;
             float min_kb = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT) / 1024.0f;
 
             // DEBUG("[CAN] RX:%lu/s drop:%lu/s buf:%u%% max:%u%% | TX a:%lu ok:%lu f:%lu d:%lu b:%lu h:%.1fkB (min:%.1fkB)\n",
-            DEBUG("[STATS] h:%.1fkB (min:%.1fkB)\n",
+            consolePrintf("[STATS] h:%.1fkB (min:%.1fkB)\n",
                   //   CANRxBuffer::getRateRx(),
                   //   CANRxBuffer::getRateDrop(),
                   //   usage_pct,
@@ -268,7 +307,7 @@ void loadSettings()
 
     buildDeviceName(deviceName, sizeof(deviceName), BASE_DEVICE_NAME);
 
-    DEBUG("deviceName=%s\n", deviceName);
+    consolePrintf("deviceName=%s\n", deviceName);
 
     // Logger::console("%i\n", espChipRevision);
 
@@ -441,6 +480,8 @@ void loadSettings()
         settings.canSettings[i].fdMode = prefs.getBool(buff, false);
     }
 
+    printPrefs();
+
     prefs.end();
 
     Logger::setLoglevel((Logger::LogLevel)settings.logLevel);
@@ -448,8 +489,8 @@ void loadSettings()
     for (int rx = 0; rx < NUM_BUSES; rx++)
         SysSettings.lawicelBusReception[rx] = true; // default to showing messages on RX
 
-    DEBUG("deviceName=%s\n", deviceName);
-    DEBUG("binarycomm=%d\n", settings.useBinarySerialComm);
+    consolePrintf("deviceName=%s\n", deviceName);
+    consolePrintf("binarycomm=%d\n", settings.useBinarySerialComm);
 }
 
 void setup()
@@ -464,14 +505,14 @@ void setup()
     Serial.begin(1000000); // for production
     RS485.begin(1000000);
     debug_to_serial = true;
-    DEBUG("\n=== BOOT ===\n");
+    consolePrintf("\n=== BOOT ===\n");
     esp_reset_reason_t r = esp_reset_reason();
-    DEBUG("Reset reason: %s (%d)\n",
+    consolePrintf("Reset reason=%s (%d)\n",
           resetReasonToStr(r), r);
 
     float heap_kb = esp_get_free_heap_size() / 1024.0f;
     float min_kb = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT) / 1024.0f;
-    DEBUG("Heap before setup%.1f kB (min:%.1f kB\n",
+    consolePrintf("HeapBeforeSetup=%.1f kB (min:%.1f kB)\n",
           heap_kb,
           min_kb);
 
@@ -479,18 +520,21 @@ void setup()
 
     espChipRevision = ESP.getChipRevision();
 
-    DEBUG("Build number: %d\n", CFG_BUILD_NUM);
+    consolePrintf("BuildNumber=%d\n", CFG_BUILD_NUM);
 
     SysSettings.isWifiConnected = false;
 
     loadSettings();
+
+    printEEPROMSettings(settings);
+    printSystemSettings(SysSettings);
 
     // CAN0.setDebuggingMode(true);
     // CAN1.setDebuggingMode(true);
 
     if (settings.enableBT)
     {
-        DEBUG_PRINTLN("Starting bluetooth");
+        consolePrintln("Starting bluetooth");
         elmEmulator.setup();
     }
 
@@ -519,11 +563,11 @@ void setup()
 
     heap_kb = esp_get_free_heap_size() / 1024.0f;
     min_kb = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT) / 1024.0f;
-    DEBUG("Heap after setup%.1f kB (min:%.1f kB\n",
+    consolePrintf("HeapAfterSetup=%.1f kB (min:%.1f kB)\n",
           heap_kb,
           min_kb);
 
-    DEBUG_PRINT("Done with init\n");
+    consolePrint("Done with init\n");
     debug_to_serial = false;
 }
 

@@ -239,4 +239,7 @@ extern CommBuffer tcpTxBuffer;
 
 extern volatile uint32_t wifiBytesSent;
 
+void printEEPROMSettings(const EEPROMSettings &cfg);
+void printSystemSettings(SystemSettings &cfg);
+
 #endif /* CONFIG_H_ */

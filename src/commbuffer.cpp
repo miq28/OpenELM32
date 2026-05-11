@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+uint32_t asciiThreshold = 1400;
+
 CommBuffer::CommBuffer()
 {
     transmitBufferLength = 0;
@@ -103,7 +105,7 @@ bool CommBuffer::appendFormatted(const char *fmt, ...)
     if (written >= (WIFI_BUFF_SIZE - transmitBufferLength))
     {
         overflowEvents++;
-        
+
         transmitBufferLength = WIFI_BUFF_SIZE;
         return false;
     }
@@ -155,6 +157,16 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME &frame, int whichBus)
     }
     else
     {
+        // ASCII mode cannot sustain very high CAN rates.
+        // If buffer starts filling, immediately drop frames
+        // to preserve CAN RX servicing.
+
+        if (transmitBufferLength > asciiThreshold)
+        {
+            droppedFrames++;
+            return;
+        }
+
         appendFormatted("%d - %x", micros(), frame.id);
         appendFormatted(frame.extended ? " X " : " S ");
         appendFormatted("%i %i", whichBus, frame.length);
@@ -178,7 +190,7 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
         {
             droppedFrames++;
             overflowEvents++;
-            
+
             return;
         }
         if (frame.extended)
@@ -208,6 +220,16 @@ void CommBuffer::sendFrameToBuffer(CAN_FRAME_FD &frame, int whichBus)
     }
     else
     {
+        // ASCII mode cannot sustain very high CAN rates.
+        // If buffer starts filling, immediately drop frames
+        // to preserve CAN RX servicing.
+
+        if (transmitBufferLength > asciiThreshold)
+        {
+            droppedFrames++;
+            return;
+        }
+
         appendFormatted("%d - %x", micros(), frame.id);
         appendFormatted(frame.extended ? " X " : " S ");
         appendFormatted("%i %i", whichBus, frame.length);

@@ -220,6 +220,8 @@ void CANManager::loop()
         }
 
         // ===== FRAME RX =====
+        uint32_t loopCount = 0;
+
         while (maxLength < (WIFI_BUFF_SIZE - 80))
         {
             bool gotFrame = false;
@@ -264,6 +266,13 @@ void CANManager::loop()
             if (!gotFrame)
                 break;
 
+            // allow lower-priority tasks (RGB/WiFi/etc) to run
+            // every 64 CAN frames we briefly yield scheduler control
+            if ((++loopCount & 0x3F) == 0)
+            {
+                taskYIELD();
+            }
+
             // refresh output pressure
             maxLength = getOutputBacklog(sendToConsole);
         }
@@ -303,7 +312,37 @@ void CANManager::loop()
         prevUsbDrops = usbDrops;
         prevTcpDrops = tcpDrops;
 
-        DEBUG("[CAN STAT] in:%lu fps out:%lu fps usbDrop:%lu/s tcpDrop:%lu/s rxqovf:%lu/s wifi:%u tx:%lu KB/s heap:%u up:%02lu:%02lu:%02lu\n",
+        // ===== adaptive ASCII overload control =====
+        extern uint32_t asciiThreshold;
+
+        static uint32_t stableSeconds = 0;
+
+        if (rxFullCount > 0)
+        {
+            stableSeconds = 0;
+
+            // gentle reduction
+            if (asciiThreshold > 256)
+                asciiThreshold -= 128;
+
+            if (asciiThreshold < 256)
+                asciiThreshold = 256;
+        }
+        else
+        {
+            stableSeconds++;
+
+            // only increase after several stable seconds
+            if (stableSeconds >= 5)
+            {
+                stableSeconds = 0;
+
+                if (asciiThreshold < 1500)
+                    asciiThreshold += 32;
+            }
+        }
+
+        DEBUG("[CAN STAT] in:%lu fps out:%lu fps usbDrop:%lu/s tcpDrop:%lu/s rxqovf:%lu/s wifi:%u tx:%lu KB/s heap:%u at:%u up:%02lu:%02lu:%02lu\n",
               fpsIn,
               fpsOut,
               usbDropRate,
@@ -312,6 +351,7 @@ void CANManager::loop()
               tcpTxBuffer.numAvailableBytes(),
               wifiKBs,
               ESP.getFreeHeap(),
+              asciiThreshold,
               hrs,
               mins,
               secs);

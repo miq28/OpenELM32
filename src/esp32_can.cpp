@@ -95,7 +95,7 @@ ESP32CAN::ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t)
 {
     g_config = TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NORMAL);
     g_config.tx_queue_len = 16;
-    g_config.rx_queue_len = 64;
+    g_config.rx_queue_len = 256;
     g_config.alerts_enabled =
         TWAI_ALERT_ERR_PASS |
         TWAI_ALERT_BUS_ERROR |

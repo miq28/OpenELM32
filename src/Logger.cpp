@@ -220,30 +220,36 @@ boolean Logger::isDebug()
  */
 void Logger::log(LogLevel level, const char *format, va_list args)
 {
+    uint8_t buffer[256];
+
+    appendBuffer = buffer;
+    appendLength = 0;
+    appendMax = sizeof(buffer);
+
     lastLogTime = millis();
-    Serial.print(lastLogTime);
-    Serial.print(" - ");
+
+    appendFormatted("%lu - ", lastLogTime);
 
     switch (level)
     {
     case Debug:
-        Serial.print("DEBUG");
+        appendFormatted("DEBUG");
         break;
 
     case Info:
-        Serial.print("INFO");
+        appendFormatted("INFO");
         break;
 
     case Warn:
-        Serial.print("WARNING");
+        appendFormatted("WARNING");
         break;
 
     case Error:
-        Serial.print("ERROR");
+        appendFormatted("ERROR");
         break;
     }
 
-    Serial.print(": ");
+    appendFormatted(": ");
 
     logMessage(format, args);
 }
@@ -292,7 +298,7 @@ void Logger::logMessage(const char *format, va_list args)
 
             if (*format == 's')
             {
-                char *s = (char *)va_arg(args, int);
+                char *s = va_arg(args, char *);
                 appendFormatted("%s", s);
                 continue;
             }
@@ -323,8 +329,25 @@ void Logger::logMessage(const char *format, va_list args)
 
             if (*format == 'l')
             {
-                appendFormatted("%l", va_arg(args, long));
-                continue;
+                ++format;
+
+                if (*format == 'd')
+                {
+                    appendFormatted("%ld", va_arg(args, long));
+                    continue;
+                }
+
+                if (*format == 'u')
+                {
+                    appendFormatted("%lu", va_arg(args, unsigned long));
+                    continue;
+                }
+
+                if (*format == 'x')
+                {
+                    appendFormatted("%lX", va_arg(args, unsigned long));
+                    continue;
+                }
             }
 
             if (*format == 'c')

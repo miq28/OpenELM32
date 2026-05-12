@@ -313,8 +313,43 @@ String ELM327Emu::processELMCmd(char *cmd)
             // look it up and report the real value.
             retString.concat("14.2V");
         }
+        //==========
+        else if (!strncmp(cmd, "atcaf", 5))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atal", 4))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atcea", 5))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atpc", 4))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atws", 4))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atst", 4))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atctm", 5))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atfi", 4))
+        {
+            retString.concat("OK");
+        }
+        //===================
         else
         { // by default respond to anything not specifically handled by just saying OK and pretending.
+            Logger::debug("Unhandled AT command: %s", cmd);
             retString.concat("OK");
         }
     }
@@ -359,6 +394,14 @@ String ELM327Emu::processELMCmd(char *cmd)
         canManager.displayFrame(outFrame, sendingBus);
         canManager.setSendToConsole(false);
         */
+        if (processVirtualOBD(retString, cmd))
+        {
+            retString.concat(lineEnding);
+            retString.concat(">");
+
+            return retString;
+        }
+
         canManager.sendFrame(canBuses[sendingBus], outFrame);
     }
 
@@ -366,6 +409,107 @@ String ELM327Emu::processELMCmd(char *cmd)
     retString.concat(">"); // prompt to show we're ready to receive again
 
     return retString;
+}
+
+bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
+{
+    // ===== SUPPORTED PID MAP =====
+    if (!strncmp(cmd, "0100", 4))
+    {
+        retString.concat("41 00 BE 3F A8 13");
+        return true;
+    }
+
+    // ===== RPM =====
+    if (!strncmp(cmd, "010c", 4))
+    {
+        static uint16_t fakeRPM = 850;
+
+        fakeRPM += 25;
+
+        if (fakeRPM > 3200)
+        {
+            fakeRPM = 850;
+        }
+
+        uint16_t raw = fakeRPM * 4;
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 0C %02X %02X",
+                (raw >> 8) & 0xFF,
+                raw & 0xFF);
+
+        retString.concat(temp);
+
+        return true;
+    }
+
+    // ===== VEHICLE SPEED =====
+    if (!strncmp(cmd, "010d", 4))
+    {
+        static uint8_t fakeSpeed = 0;
+
+        fakeSpeed++;
+
+        if (fakeSpeed > 120)
+        {
+            fakeSpeed = 0;
+        }
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 0D %02X",
+                fakeSpeed);
+
+        retString.concat(temp);
+
+        return true;
+    }
+
+    // ===== COOLANT TEMP =====
+    if (!strncmp(cmd, "0105", 4))
+    {
+        uint8_t tempValue = 90 + 40;
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 05 %02X",
+                tempValue);
+
+        retString.concat(temp);
+
+        return true;
+    }
+
+    // ===== BATTERY VOLTAGE =====
+    if (!strncmp(cmd, "0142", 4))
+    {
+        uint16_t voltage = 1420;
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 42 %02X %02X",
+                (voltage >> 8) & 0xFF,
+                voltage & 0xFF);
+
+        retString.concat(temp);
+
+        return true;
+    }
+
+    // ===== VIN =====
+    if (!strncmp(cmd, "0902", 4))
+    {
+        retString.concat("49 02 01 57 45 41 43 54 31");
+        return true;
+    }
+
+    return false;
 }
 
 void ELM327Emu::processCANReply(CAN_FRAME &frame)

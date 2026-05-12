@@ -94,7 +94,15 @@ private:
     void processCmd();
     String processELMCmd(char *cmd);
     bool processVirtualOBD(String &retString, char *cmd);
+
+    bool isVirtualPIDSupported(uint8_t mode, uint16_t pid);
+    uint32_t buildPIDBitmap(uint8_t basePID);
     void sendTxBuffer();
+
+    bool waitingForReply;
+    uint32_t requestStartTime;
+    uint8_t pendingMode;
+    uint16_t pendingPID;
 };
 
 #endif

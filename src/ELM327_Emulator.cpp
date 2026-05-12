@@ -402,7 +402,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             return retString;
         }
 
-        // canManager.sendFrame(canBuses[sendingBus], outFrame);
+        canManager.sendFrame(canBuses[sendingBus], outFrame);
         retString.concat("NO DATA");
     }
 
@@ -412,12 +412,65 @@ String ELM327Emu::processELMCmd(char *cmd)
     return retString;
 }
 
+bool ELM327Emu::isVirtualPIDSupported(uint8_t mode, uint16_t pid)
+{
+    if (mode != 1)
+    {
+        return false;
+    }
+
+    switch (pid)
+    {
+    case 0x00:
+    case 0x05:
+    case 0x0C:
+    case 0x0D:
+    case 0x0F:
+    case 0x11:
+    case 0x2F:
+    case 0x42:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+uint32_t ELM327Emu::buildPIDBitmap(uint8_t basePID)
+{
+    uint32_t bitmap = 0;
+
+    for (int i = 1; i <= 32; i++)
+    {
+        uint16_t pid = basePID + i;
+
+        if (isVirtualPIDSupported(1, pid))
+        {
+            bitmap |= (1UL << (32 - i));
+        }
+    }
+
+    return bitmap;
+}
+
 bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
 {
     // ===== SUPPORTED PID MAP =====
     if (!strncmp(cmd, "0100", 4))
     {
-        retString.concat("41 00 BE 3F A8 13");
+        uint32_t bitmap = buildPIDBitmap(0x00);
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 00 %02X %02X %02X %02X",
+                (bitmap >> 24) & 0xFF,
+                (bitmap >> 16) & 0xFF,
+                (bitmap >> 8) & 0xFF,
+                bitmap & 0xFF);
+
+        retString.concat(temp);
+
         return true;
     }
 
@@ -507,6 +560,67 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
     if (!strncmp(cmd, "0902", 4))
     {
         retString.concat("49 02 01 57 45 41 43 54 31");
+        return true;
+    }
+
+    // ===== INTAKE AIR TEMP =====
+    if (!strncmp(cmd, "010f", 4))
+    {
+        uint8_t tempValue = 35 + 40;
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 0F %02X",
+                tempValue);
+
+        retString.concat(temp);
+
+        return true;
+    }
+
+    // ===== THROTTLE POSITION =====
+    if (!strncmp(cmd, "0111", 4))
+    {
+        static uint8_t throttle = 10;
+
+        throttle += 3;
+
+        if (throttle > 90)
+        {
+            throttle = 10;
+        }
+
+        uint8_t raw =
+            (uint8_t)((throttle * 255) / 100);
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 11 %02X",
+                raw);
+
+        retString.concat(temp);
+
+        return true;
+    }
+
+    // ===== FUEL LEVEL =====
+    if (!strncmp(cmd, "012f", 4))
+    {
+        uint8_t fuel = 72;
+
+        uint8_t raw =
+            (uint8_t)((fuel * 255) / 100);
+
+        char temp[64];
+
+        sprintf(temp,
+                "41 2F %02X",
+                raw);
+
+        retString.concat(temp);
+
         return true;
     }
 

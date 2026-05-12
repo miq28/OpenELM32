@@ -168,21 +168,21 @@ void ELM327Emu::sendTxBuffer()
 {
     if (mClient)
     {
-        size_t wifiLength = txBuffer.numAvailableBytes();
-        uint8_t *buff = txBuffer.getBufferedBytes();
         if (mClient->connected())
         {
-            mClient->write(buff, wifiLength);
+            TransportEndpoint endpoint(mClient);
+
+            txBuffer.flushToEndpoint(endpoint);
         }
     }
     else // bluetooth then
     {
 #ifndef CONFIG_IDF_TARGET_ESP32S3
-        serialBT.write(txBuffer.getBufferedBytes(), txBuffer.numAvailableBytes());
-        // Serial.write(txBuffer.getBufferedBytes(), txBuffer.numAvailableBytes());
+        TransportEndpoint endpoint(&serialBT);
+
+        txBuffer.flushToEndpoint(endpoint);
 #endif
     }
-    txBuffer.clearBufferedBytes();
 }
 
 /*
@@ -402,7 +402,8 @@ String ELM327Emu::processELMCmd(char *cmd)
             return retString;
         }
 
-        canManager.sendFrame(canBuses[sendingBus], outFrame);
+        // canManager.sendFrame(canBuses[sendingBus], outFrame);
+        retString.concat("NO DATA");
     }
 
     retString.concat(lineEnding);

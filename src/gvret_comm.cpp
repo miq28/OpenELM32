@@ -300,15 +300,18 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
             { // disable first canbus
                 settings.canSettings[0].enabled = false;
             }
-
-            if (settings.canSettings[0].enabled)
+            
+            if (canBuses[0] != nullptr)
             {
-                canBuses[0]->begin(settings.canSettings[0].nomSpeed, 255);
-                if (settings.canSettings[0].listenOnly)
-                    canBuses[0]->setListenOnlyMode(true);
-                else
-                    canBuses[0]->setListenOnlyMode(false);
-                canBuses[0]->watchFor();
+                if (settings.canSettings[0].enabled)
+                {
+                    canBuses[0]->begin(settings.canSettings[0].nomSpeed, 255);
+                    if (settings.canSettings[0].listenOnly)
+                        canBuses[0]->setListenOnlyMode(true);
+                    else
+                        canBuses[0]->setListenOnlyMode(false);
+                    canBuses[0]->watchFor();
+                }
             }
             else
                 canBuses[0]->disable();
@@ -362,17 +365,25 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
                 settings.canSettings[1].enabled = false;
             }
 
-            if (settings.canSettings[1].enabled)
+            if (SysSettings.numBuses > 1 &&
+                canBuses[1] != nullptr)
             {
-                canBuses[1]->begin(settings.canSettings[1].nomSpeed, 255);
-                if (settings.canSettings[1].listenOnly)
-                    canBuses[1]->setListenOnlyMode(true);
+                if (settings.canSettings[1].enabled)
+                {
+                    canBuses[1]->begin(settings.canSettings[1].nomSpeed, 255);
+
+                    if (settings.canSettings[1].listenOnly)
+                        canBuses[1]->setListenOnlyMode(true);
+                    else
+                        canBuses[1]->setListenOnlyMode(false);
+
+                    canBuses[1]->watchFor();
+                }
                 else
-                    canBuses[1]->setListenOnlyMode(false);
-                canBuses[1]->watchFor();
+                {
+                    canBuses[1]->disable();
+                }
             }
-            else
-                canBuses[1]->disable();
 
             state = IDLE;
             // now, write out the new canbus settings to EEPROM

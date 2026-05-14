@@ -58,8 +58,14 @@ ELM327Emu::ELM327Emu()
 
     waitingForReply = false;
     requestStartTime = 0;
+    lastReplyTime = 0;
+
     pendingMode = 0;
     pendingPID = 0;
+
+    gotReply = false;
+
+    replyAccumulator = "";
 }
 
 /*
@@ -168,16 +174,36 @@ void ELM327Emu::loop()
         }
     }
 
-    // ===== REQUEST TIMEOUT =====
+    // ===== REQUEST HANDLING =====
     if (waitingForReply)
     {
-        if ((millis() - requestStartTime) > 200)
+        uint32_t now = millis();
+
+        // ---- collected replies, wait a short quiet window ----
+        if (gotReply)
         {
-            waitingForReply = false;
+            if ((now - lastReplyTime) > 50)
+            {
+                waitingForReply = false;
 
-            txBuffer.sendString("NO DATA\r\n>");
+                txBuffer.sendString(replyAccumulator);
 
-            sendTxBuffer();
+                txBuffer.sendString(">");
+
+                sendTxBuffer();
+            }
+        }
+        // ---- no reply at all ----
+        else
+        {
+            if ((now - requestStartTime) > 200)
+            {
+                waitingForReply = false;
+
+                txBuffer.sendString("NO DATA\r\n>");
+
+                sendTxBuffer();
+            }
         }
     }
 }
@@ -664,28 +690,43 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
 
 void ELM327Emu::processCANReply(CAN_FRAME &frame)
 {
-    waitingForReply = false;
+    lastReplyTime = millis();
 
-    // at the moment assume anything sent here is a legit reply to something we sent. Package it up properly
-    // and send it down the line
-    char buff[8];
+    gotReply = true;
+
+    char buff[32];
+
+    // ===== HEADER =====
     if (bHeader || bMonitorMode)
     {
-        sprintf(buff, "%03X", frame.id);
-        txBuffer.sendString(buff);
+        sprintf(buff, "%03X ", frame.id);
+
+        replyAccumulator += buff;
     }
+
+    // ===== DLC =====
     if (bDLC)
     {
-        sprintf(buff, "%u", frame.length);
-        txBuffer.sendString(buff);
+        sprintf(buff, "%u ", frame.length);
+
+        replyAccumulator += buff;
     }
+
+    // ===== DATA =====
     for (int i = 0; i < frame.data.uint8[0]; i++)
     {
-        sprintf(buff, "%02X", frame.data.uint8[1 + i]);
-        txBuffer.sendString(buff);
-    }
-    
-    txBuffer.sendString("\r\n>");
+        sprintf(buff, "%02X ", frame.data.uint8[1 + i]);
 
-    sendTxBuffer();
+        replyAccumulator += buff;
+    }
+
+    // trim trailing space
+    if (replyAccumulator.length() > 0 &&
+        replyAccumulator.endsWith(" "))
+    {
+        replyAccumulator.remove(
+            replyAccumulator.length() - 1);
+    }
+
+    replyAccumulator += "\r\n";
 }

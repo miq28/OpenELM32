@@ -101,8 +101,14 @@ private:
 
     bool waitingForReply;
     uint32_t requestStartTime;
+    uint32_t lastReplyTime;
+
     uint8_t pendingMode;
     uint16_t pendingPID;
+
+    bool gotReply;
+
+    String replyAccumulator;
 };
 
 #endif

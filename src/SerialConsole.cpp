@@ -264,13 +264,31 @@ void SerialConsole::handleConfigCmd()
         if (newValue > 32000 && newValue <= 1000000)
         {
             Logger::console("Setting CAN%i Nominal Speed to %i", idx, newValue);
+
             settings.canSettings[idx].nomSpeed = newValue;
+
+            char key[32];
+
+            sprintf(key, "can%ispeed", idx);
+
+            prefs.begin(PREF_NAME, false);
+            prefs.putUInt(key, newValue);
+            prefs.end();
+
             if (settings.canSettings[idx].enabled)
             {
                 if (settings.canSettings[idx].fdMode)
-                    canBuses[idx]->begin(settings.canSettings[idx].nomSpeed, settings.canSettings[idx].fdSpeed);
-            }
-            writeEEPROM = true;
+                {
+                    canBuses[idx]->begin(
+                        settings.canSettings[idx].nomSpeed,
+                        settings.canSettings[idx].fdSpeed);
+                }
+                else
+                {
+                    canBuses[idx]->begin(
+                        settings.canSettings[idx].nomSpeed);
+                }
+            };
         }
         else
             Logger::console("Invalid baud rate! Enter a value 32000 - 1000000");

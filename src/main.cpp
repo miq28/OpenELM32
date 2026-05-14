@@ -468,8 +468,7 @@ void loadSettings()
     for (int i = 0; i < SysSettings.numBuses; i++)
     {
         sprintf(buff, "can%ispeed", i);
-        // settings.canSettings[i].nomSpeed = prefs.getUInt(buff, 500000);
-        settings.canSettings[i].nomSpeed = 500000;
+        settings.canSettings[i].nomSpeed = prefs.getUInt(buff, 500000);
         sprintf(buff, "can%i_en", i);
         settings.canSettings[i].enabled = prefs.getBool(buff, (i < 2) ? true : false);
         sprintf(buff, "can%i-listenonly", i);

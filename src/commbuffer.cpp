@@ -259,9 +259,7 @@ void CommBuffer::consume(size_t n)
 
 size_t CommBuffer::flushToEndpoint(TransportEndpoint &endpoint)
 {
-    size_t available = transmitBufferLength;
-
-    if (available == 0)
+    if (transmitBufferLength == 0)
     {
         return 0;
     }
@@ -271,14 +269,26 @@ size_t CommBuffer::flushToEndpoint(TransportEndpoint &endpoint)
         return 0;
     }
 
-    size_t sent = endpoint.write(transmitBuffer, available);
+    size_t totalSent = 0;
 
-    if (sent > 0)
+    while (transmitBufferLength > 0)
     {
+        size_t sent =
+            endpoint.write(
+                transmitBuffer,
+                transmitBufferLength);
+
+        if (sent == 0)
+        {
+            break;
+        }
+
         consume(sent);
+
+        totalSent += sent;
     }
 
-    return sent;
+    return totalSent;
 }
 
 bool CommBuffer::hasSpace(size_t needed)

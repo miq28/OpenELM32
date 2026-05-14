@@ -239,12 +239,9 @@ void CANManager::loop()
 
                     forwardedFrames++;
 
-                    if (((incoming.id > 0x7DF) &&
-                         (incoming.id < 0x7F0)) ||
-                        elmEmulator.getMonitorMode())
+                    if (i == settings.sendingBus)
                     {
-                        if (i == settings.sendingBus)
-                            elmEmulator.processCANReply(incoming);
+                        elmEmulator.processCANReply(incoming);
                     }
                 }
             }

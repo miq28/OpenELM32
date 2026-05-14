@@ -715,6 +715,26 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
 
 void ELM327Emu::processCANReply(CAN_FRAME &frame)
 {
+    // ignore unrelated traffic
+    if (!waitingForReply)
+    {
+        return;
+    }
+
+    // basic OBD/UDS positive response filtering
+    if (frame.length < 2)
+    {
+        return;
+    }
+
+    uint8_t sid = frame.data.uint8[1];
+
+    // positive response SID must equal request SID + 0x40
+    if (sid != (pendingMode + 0x40))
+    {
+        return;
+    }
+
     lastReplyTime = millis();
 
     gotReply = true;

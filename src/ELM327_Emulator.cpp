@@ -36,6 +36,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "utility.h"
 #include "esp32_can.h"
 #include "can_manager.h"
+#include "debug.h"
 #ifndef CONFIG_IDF_TARGET_ESP32S3
 #include "BluetoothSerial.h"
 #endif
@@ -468,6 +469,18 @@ String ELM327Emu::processELMCmd(char *cmd)
             return retString;
         }
 
+        // === CAN TX debug
+        DEBUG("[ELM TX] id:%03X len:%u data:",
+              outFrame.id,
+              outFrame.length);
+
+        for (int i = 0; i < outFrame.length; i++)
+        {
+            DEBUG(" %02X", outFrame.data.uint8[i]);
+        }
+
+        DEBUG("\n");
+
         canManager.sendFrame(canBuses[sendingBus], outFrame);
 
         gotReply = false;
@@ -643,12 +656,16 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
     }
 
     // ===== VIN =====
-    if (!strncmp(cmd, "0902", 4))
+    // ===== VIN =====
+    if (!strncmp(cmd, "0902", 4)) // WEACTEST1234
     {
-        retString.concat("49 02 01 57 45 41 43 54 31");
+        retString.concat(
+            "49 02 01 57 45 41 43\r\n"
+            "49 02 02 54 45 53 54\r\n"
+            "49 02 03 31 32 33 34");
+
         return true;
     }
-
     // ===== INTAKE AIR TEMP =====
     if (!strncmp(cmd, "010f", 4))
     {
@@ -710,6 +727,54 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
         return true;
     }
 
+    // ===== SUPPORTED PID MAP 20 =====
+    if (!strncmp(cmd, "0120", 4))
+    {
+        retString.concat("41 20 00 00 00 01");
+        return true;
+    }
+
+    // ===== SUPPORTED PID MAP 40 =====
+    if (!strncmp(cmd, "0140", 4))
+    {
+        retString.concat("41 40 44 00 00 00");
+        return true;
+    }
+
+    // ===== SUPPORTED PID MAP 60 =====
+    if (!strncmp(cmd, "0160", 4))
+    {
+        retString.concat("41 60 00 00 00 00");
+        return true;
+    }
+
+    // // ===== OBD AUTO DOCTOR UDS PROBE =====
+    // if (!strncmp(cmd, "22f802", 6))
+    // {
+    //     retString.concat("62 F8 02 00");
+
+    //     return true;
+    // }
+
+    // ===== GENERIC UDS NEGATIVE RESPONSE =====
+    if (strlen(cmd) >= 6)
+    {
+        uint8_t mode =
+            (uint8_t)strtol(String(cmd).substring(0, 2).c_str(),
+                            NULL,
+                            16);
+
+        char temp[64];
+
+        sprintf(temp,
+                "7F %02X 31",
+                mode);
+
+        retString.concat(temp);
+
+        return true;
+    }
+
     return false;
 }
 
@@ -738,6 +803,18 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     lastReplyTime = millis();
 
     gotReply = true;
+
+    // === RX debug
+    DEBUG("[ELM RX] id:%03X len:%u data:",
+          frame.id,
+          frame.length);
+
+    for (int i = 0; i < frame.length; i++)
+    {
+        DEBUG(" %02X", frame.data.uint8[i]);
+    }
+
+    DEBUG("\n");
 
     char buff[32];
 

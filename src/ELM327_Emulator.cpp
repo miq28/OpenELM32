@@ -327,14 +327,22 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strncmp(cmd, "atsp", 4))
         {
-            currentProtocol =
+            uint8_t requested =
                 strtol(cmd + 4, NULL, 16);
 
-            retString.concat("OK");
+            if (requested == 6)
+            {
+                currentProtocol = 6;
+                retString.concat("OK");
+            }
+            else
+            {
+                retString.concat("?");
+            }
         }
         else if (!strcmp(cmd, "atdp"))
         { // show description of protocol
-            retString.concat("can11/500");
+            retString.concat("ISO 15765-4 (CAN 11/500)");
         }
         else if (!strcmp(cmd, "atdpn"))
         {
@@ -532,6 +540,9 @@ bool ELM327Emu::isVirtualPIDSupported(uint8_t mode, uint16_t pid)
     case 0x0F:
     case 0x11:
     case 0x2F:
+    case 0x20:
+    case 0x40:
+    case 0x60:
     case 0x42:
         return true;
 
@@ -744,7 +755,7 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
     // ===== SUPPORTED PID MAP 20 =====
     if (!strncmp(cmd, "0120", 4))
     {
-        retString.concat("41 20 00 00 00 01");
+        retString.concat("41 20 00 00 00 00");
         return true;
     }
 

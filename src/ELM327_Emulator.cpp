@@ -55,6 +55,11 @@ ELM327Emu::ELM327Emu()
     bMonitorMode = false;
     bDLC = false;
     sendingBus = 0;
+
+    waitingForReply = false;
+    requestStartTime = 0;
+    pendingMode = 0;
+    pendingPID = 0;
 }
 
 /*
@@ -160,6 +165,19 @@ void ELM327Emu::loop()
             }
             else
                 return;
+        }
+    }
+
+    // ===== REQUEST TIMEOUT =====
+    if (waitingForReply)
+    {
+        if ((millis() - requestStartTime) > 200)
+        {
+            waitingForReply = false;
+
+            txBuffer.sendString("NO DATA\r\n>");
+
+            sendTxBuffer();
         }
     }
 }
@@ -403,7 +421,24 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
 
         canManager.sendFrame(canBuses[sendingBus], outFrame);
-        retString.concat("NO DATA");
+
+        waitingForReply = true;
+        requestStartTime = millis();
+
+        pendingMode = outFrame.data.uint8[1];
+
+        if (cmdSize == 4)
+        {
+            pendingPID = outFrame.data.uint8[2];
+        }
+        else
+        {
+            pendingPID =
+                ((uint16_t)outFrame.data.uint8[2] << 8) |
+                outFrame.data.uint8[3];
+        }
+
+        return "";
     }
 
     retString.concat(lineEnding);
@@ -629,6 +664,8 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
 
 void ELM327Emu::processCANReply(CAN_FRAME &frame)
 {
+    waitingForReply = false;
+
     // at the moment assume anything sent here is a legit reply to something we sent. Package it up properly
     // and send it down the line
     char buff[8];
@@ -647,5 +684,8 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
         sprintf(buff, "%02X", frame.data.uint8[1 + i]);
         txBuffer.sendString(buff);
     }
+    
+    txBuffer.sendString("\r\n>");
+
     sendTxBuffer();
 }

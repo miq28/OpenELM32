@@ -48,7 +48,7 @@ ELM327Emu::ELM327Emu()
 {
     tickCounter = 0;
     ibWritePtr = 0;
-    ecuAddress = 0x7E0;
+    ecuAddress = 0x7DF;
     mClient = 0;
     bEcho = false;
     bHeader = false;
@@ -68,6 +68,9 @@ ELM327Emu::ELM327Emu()
     gotReply = false;
 
     replyAccumulator = "";
+
+    virtualECUEnabled = true;
+    virtualOBDOverCAN = true;
 }
 
 /*
@@ -468,7 +471,9 @@ String ELM327Emu::processELMCmd(char *cmd)
         canManager.displayFrame(outFrame, sendingBus);
         canManager.setSendToConsole(false);
         */
-        if (processVirtualOBD(retString, cmd))
+        if (virtualECUEnabled &&
+            !virtualOBDOverCAN &&
+            processVirtualOBD(retString, cmd))
         {
             if (bLineFeed)
             {

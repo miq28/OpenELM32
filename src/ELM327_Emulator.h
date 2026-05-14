@@ -90,6 +90,7 @@ private:
     int ibWritePtr;
     int currReply;
     int sendingBus;
+    uint8_t currentProtocol;
 
     void processCmd();
     String processELMCmd(char *cmd);

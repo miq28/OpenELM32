@@ -56,6 +56,7 @@ ELM327Emu::ELM327Emu()
     bMonitorMode = false;
     bDLC = false;
     sendingBus = 0;
+    currentProtocol = 6;
 
     waitingForReply = false;
     requestStartTime = 0;
@@ -325,8 +326,10 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atsp", 4))
-        { // set protocol
-            // theoretically we can ignore this
+        {
+            currentProtocol =
+                strtol(cmd + 4, NULL, 16);
+
             retString.concat("OK");
         }
         else if (!strcmp(cmd, "atdp"))
@@ -334,8 +337,10 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat("can11/500");
         }
         else if (!strcmp(cmd, "atdpn"))
-        { // show protocol number (same as passed to sp)
-            retString.concat("6");
+        {
+            sprintf(buffer, "%X", currentProtocol);
+
+            retString.concat(buffer);
         }
         else if (!strncmp(cmd, "atd0", 4))
         {
@@ -655,7 +660,16 @@ bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
         return true;
     }
 
-    // ===== VIN =====
+    // ===== MODE 09 SUPPORTED PID MAP =====
+    if (!strncmp(cmd, "0900", 4))
+    {
+        // support PID 02 (VIN)
+
+        retString.concat("49 00 40 00 00 00");
+
+        return true;
+    }
+
     // ===== VIN =====
     if (!strncmp(cmd, "0902", 4)) // WEACTEST1234
     {

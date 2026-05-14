@@ -307,7 +307,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat("OBDLink MX");
         }
         else if (!strcmp(cmd, "at@2"))
-        { // device identifier
+        {                                 // device identifier
             retString.concat(deviceName); // WEACT_CAN4854
         }
         else if (!strcmp(cmd, "ati"))
@@ -317,6 +317,10 @@ String ELM327Emu::processELMCmd(char *cmd)
         else if (!strncmp(cmd, "atat", 4))
         { // set adaptive timing
             // don't intend to support adaptive timing at all
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "attp", 4))
+        {
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atsp", 4))
@@ -351,6 +355,10 @@ String ELM327Emu::processELMCmd(char *cmd)
             Logger::debug("ENTERING monitor mode");
             bMonitorMode = true;
         }
+        else if (!strncmp(cmd, "ats", 3))
+        { // spaces on/off
+            retString.concat("OK");
+        }
         else if (!strncmp(cmd, "atm", 3))
         { // turn memory on/off
             retString.concat("OK");
@@ -379,6 +387,10 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atws", 4))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "atsw", 4))
         {
             retString.concat("OK");
         }
@@ -444,13 +456,22 @@ String ELM327Emu::processELMCmd(char *cmd)
         */
         if (processVirtualOBD(retString, cmd))
         {
-            retString.concat(lineEnding);
-            retString.concat(">");
+            if (bLineFeed)
+            {
+                retString.concat("\r\n>");
+            }
+            else
+            {
+                retString.concat("\r>");
+            }
 
             return retString;
         }
 
         canManager.sendFrame(canBuses[sendingBus], outFrame);
+
+        gotReply = false;
+        replyAccumulator = "";
 
         waitingForReply = true;
         requestStartTime = millis();

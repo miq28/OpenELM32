@@ -284,7 +284,7 @@ String ELM327Emu::processELMCmd(char *cmd)
                 bEcho = true;
             if (cmd[3] == '0')
                 bEcho = false;
-            // retString.concat("OK");
+            retString.concat("OK");
         }
         else if (!strncmp(cmd, "ath", 3))
         { // turn headers on/off
@@ -305,6 +305,10 @@ String ELM327Emu::processELMCmd(char *cmd)
         else if (!strcmp(cmd, "at@1"))
         { // send device description
             retString.concat("OBDLink MX");
+        }
+        else if (!strcmp(cmd, "at@2"))
+        { // device identifier
+            retString.concat(deviceName); // WEACT_CAN4854
         }
         else if (!strcmp(cmd, "ati"))
         { // send chip ID

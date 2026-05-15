@@ -41,6 +41,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "BluetoothSerial.h"
 #endif
 
+static uint32_t elmTxnCounter = 0;
+
 /*
  * Constructor. Nothing at the moment
  */
@@ -486,7 +488,14 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
 
         // === CAN TX debug
-        DEBUG("[ELM TX] id:%03X len:%u data:",
+        uint32_t txn = ++elmTxnCounter;
+
+        DEBUG("\n");
+        DEBUG("====================================================\n");
+        DEBUG("[%lu ms][ELM %lu TX] CMD:%s\n", millis(), txn, cmd);
+        DEBUG("[%lu ms][ELM %lu TX] id:%03X len:%u data:",
+              millis(),
+              txn,
               outFrame.id,
               outFrame.length);
 
@@ -494,6 +503,9 @@ String ELM327Emu::processELMCmd(char *cmd)
         {
             DEBUG(" %02X", outFrame.data.uint8[i]);
         }
+
+        DEBUG("\n");
+        DEBUG("----------------------------------------------------\n");
 
         DEBUG("\n");
 
@@ -833,7 +845,8 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     gotReply = true;
 
     // === RX debug
-    DEBUG("[ELM RX] id:%03X len:%u data:",
+    DEBUG("[%lu ms][ELM RX] id:%03X len:%u data:",
+          millis(),
           frame.id,
           frame.length);
 
@@ -843,6 +856,7 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     }
 
     DEBUG("\n");
+    DEBUG("====================================================\n\n");
 
     char buff[32];
 

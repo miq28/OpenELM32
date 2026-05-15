@@ -38,6 +38,8 @@ void printEEPROMSettings(const EEPROMSettings &cfg)
                   cfg.sendingBus);
     consolePrintf("enableLawicel        : %s\n",
                   cfg.enableLawicel ? "true" : "false");
+    consolePrintf("enableLawicel        : %s\n",
+                  cfg.enableVirtualOBD ? "true" : "false");
 
     // ------------------------------------------------------------------
     // WiFi
@@ -45,10 +47,6 @@ void printEEPROMSettings(const EEPROMSettings &cfg)
 
     consolePrintf("wifiMode             : %u\n",
                   cfg.wifiMode);
-    consolePrintf("SSID                 : %s\n",
-                  cfg.SSID);
-    consolePrintf("WPA2Key              : %s\n",
-                  cfg.WPA2Key);
     consolePrintf("STA_SSID             : %s\n",
                   cfg.STA_SSID);
     consolePrintf("STA_PASS             : %s\n",

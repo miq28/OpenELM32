@@ -69,8 +69,7 @@ ELM327Emu::ELM327Emu()
 
     replyAccumulator = "";
 
-    virtualECUEnabled = true;
-    virtualOBDOverCAN = true;
+    virtualECUEnabled = settings.enableVirtualOBD;
 }
 
 /*
@@ -472,7 +471,6 @@ String ELM327Emu::processELMCmd(char *cmd)
         canManager.setSendToConsole(false);
         */
         if (virtualECUEnabled &&
-            !virtualOBDOverCAN &&
             processVirtualOBD(retString, cmd))
         {
             if (bLineFeed)

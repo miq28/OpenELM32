@@ -105,6 +105,8 @@ void SerialConsole::printMenu()
 
     Logger::console("LAWICEL=%i - Set whether to accept LAWICEL commands (0 = Off, 1 = On)", settings.enableLawicel);
     consolePrintln();
+    Logger::console("VIRTUALOBD=%i - Enable fake internal OBD ECU", settings.enableVirtualOBD);
+    consolePrintln();
 
     Logger::console("DEBUG=%i - Enable runtime debug output", debug_enabled);
     Logger::console("DEBUGSER=%i - Debug output to USB serial", debug_to_serial);
@@ -620,6 +622,15 @@ void SerialConsole::handleConfigCmd()
             writeEEPROM = true;
             break;
         }
+    }
+    else if (cmdString == String("VIRTUALOBD"))
+    {
+        settings.enableVirtualOBD = (newValue != 0);
+
+        Logger::console("Virtual OBD %s",
+                        settings.enableVirtualOBD ? "ENABLED" : "DISABLED");
+
+        writeEEPROM = true;
     }
     else
     {

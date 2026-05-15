@@ -85,7 +85,6 @@ private:
     bool bMonitorMode;        // should we output all frames?
     bool bDLC;                // output DLC?
     bool virtualECUEnabled;
-    bool virtualOBDOverCAN;
     uint32_t ecuAddress;
     int tickCounter;
     int ibWritePtr;

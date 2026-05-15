@@ -339,6 +339,7 @@ void loadSettings()
     settings.wifiMode = prefs.getUChar("wifiMode", 2); // Wifi defaults to creating an AP
     settings.enableBT = prefs.getBool("enable-bt", false);
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
+    settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
     settings.sendingBus = prefs.getInt("sendingBus", 0);
 
     if (prefs.getString("btname", settings.btName, 32) == 0)

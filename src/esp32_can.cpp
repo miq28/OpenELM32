@@ -119,44 +119,44 @@ uint32_t ESP32CAN::begin(uint32_t baudrate)
     {
     case 1000000:
         t_config = TWAI_TIMING_CONFIG_1MBITS();
-        return true;
+        break;
     case 800000:
         t_config = TWAI_TIMING_CONFIG_800KBITS();
-        return true;
+        break;
     case 500000:
         t_config = TWAI_TIMING_CONFIG_500KBITS();
-        return true;
+        break;
     case 250000:
         t_config = TWAI_TIMING_CONFIG_250KBITS();
-        return true;
+        break;
     case 125000:
         t_config = TWAI_TIMING_CONFIG_125KBITS();
-        return true;
+        break;
     case 100000:
         t_config = TWAI_TIMING_CONFIG_100KBITS();
-        return true;
+        break;
     case 50000:
         t_config = TWAI_TIMING_CONFIG_50KBITS();
-        return true;
+        break;
     case 25000:
         t_config = TWAI_TIMING_CONFIG_25KBITS();
-        return true;
+        break;
     case 83333:
         t_config.brp = 48;
         t_config.tseg_1 = 15;
         t_config.tseg_2 = 4;
         t_config.sjw = 3;
         t_config.triple_sampling = false;
-        return true;
+        break;
     case 33333:
         t_config.brp = 120;
         t_config.tseg_1 = 15;
         t_config.tseg_2 = 4;
         t_config.sjw = 3;
         t_config.triple_sampling = false;
-        return true;
+        break;
     default:
-        return false;
+        return 0;
     }
 
     if (twai_driver_install(&g_config, &t_config, &f_config) != ESP_OK)

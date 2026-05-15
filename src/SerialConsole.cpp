@@ -670,7 +670,7 @@ void SerialConsole::handleConfigCmd()
         prefs.putString("SSID", settings.SSID);
         prefs.putString("wpa2Key", settings.WPA2Key);
         prefs.putString("btname", settings.btName);
-        prefs.getBool("virtualOBD", settings.enableVirtualOBD);
+        prefs.putBool("virtualOBD", settings.enableVirtualOBD);
         prefs.end();
     }
 }

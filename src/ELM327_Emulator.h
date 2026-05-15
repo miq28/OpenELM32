@@ -109,6 +109,8 @@ private:
 
     bool gotReply;
 
+    uint32_t activeTxn;
+
     String replyAccumulator;
 };
 

@@ -69,6 +69,8 @@ ELM327Emu::ELM327Emu()
 
     gotReply = false;
 
+    activeTxn = 0;
+
     replyAccumulator = "";
 
     virtualECUEnabled = settings.enableVirtualOBD;
@@ -490,6 +492,8 @@ String ELM327Emu::processELMCmd(char *cmd)
         // === CAN TX debug
         uint32_t txn = ++elmTxnCounter;
 
+        activeTxn = txn;
+
         DEBUG("\n");
         DEBUG("====================================================\n");
         DEBUG("[%lu ms][ELM %lu TX] CMD:%s\n", millis(), txn, cmd);
@@ -506,8 +510,6 @@ String ELM327Emu::processELMCmd(char *cmd)
 
         DEBUG("\n");
         DEBUG("----------------------------------------------------\n");
-
-        DEBUG("\n");
 
         canManager.sendFrame(canBuses[sendingBus], outFrame);
 
@@ -845,8 +847,9 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     gotReply = true;
 
     // === RX debug
-    DEBUG("[%lu ms][ELM RX] id:%03X len:%u data:",
+    DEBUG("[%lu ms][ELM %lu RX] id:%03X len:%u data:",
           millis(),
+          activeTxn,
           frame.id,
           frame.length);
 

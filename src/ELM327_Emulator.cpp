@@ -194,6 +194,12 @@ void ELM327Emu::loop()
             {
                 waitingForReply = false;
 
+                //=== OBD Reply Path
+                DEBUG("[%lu ms][ELM->APP %lu TX] %s>\n",
+                      millis(),
+                      activeTxn,
+                      replyAccumulator.c_str());
+
                 txBuffer.sendString(replyAccumulator);
 
                 txBuffer.sendString(">");
@@ -244,6 +250,10 @@ void ELM327Emu::sendTxBuffer()
 void ELM327Emu::processCmd()
 {
     String retString = processELMCmd(incomingBuffer);
+
+    //==== AT command replies
+    DEBUG("[ELM->APP TX] %s\n",
+          retString.c_str());
 
     txBuffer.sendString(retString);
     sendTxBuffer();
@@ -496,8 +506,8 @@ String ELM327Emu::processELMCmd(char *cmd)
 
         DEBUG("\n");
         DEBUG("====================================================\n");
-        DEBUG("[%lu ms][ELM %lu TX] CMD:%s\n", millis(), txn, cmd);
-        DEBUG("[%lu ms][ELM %lu TX] id:%03X len:%u data:",
+        DEBUG("[%lu ms][APP->ELM %lu] CMD:%s\n", millis(), txn, cmd);
+        DEBUG("[%lu ms][ELM->CAN %lu TX] id:%03X len:%u data:",
               millis(),
               txn,
               outFrame.id,
@@ -847,7 +857,7 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     gotReply = true;
 
     // === RX debug
-    DEBUG("[%lu ms][ELM %lu RX] id:%03X len:%u data:",
+    DEBUG("[%lu ms][CAN->ELM %lu RX] id:%03X len:%u data:",
           millis(),
           activeTxn,
           frame.id,

@@ -133,9 +133,6 @@ void ELM327Emu::loop()
                     incomingBuffer[ibWritePtr] = 0; // null terminate the string
                     ibWritePtr = 0;                 // reset the write pointer
 
-                    if (Logger::isDebug())
-                        Logger::debug(incomingBuffer);
-
                     processCmd();
                 }
                 else
@@ -165,9 +162,6 @@ void ELM327Emu::loop()
                 {                                   // on CR or full buffer, process the line
                     incomingBuffer[ibWritePtr] = 0; // null terminate the string
                     ibWritePtr = 0;                 // reset the write pointer
-
-                    if (Logger::isDebug())
-                        Logger::debug(incomingBuffer);
 
                     processCmd();
                 }

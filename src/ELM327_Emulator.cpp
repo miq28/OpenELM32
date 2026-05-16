@@ -251,11 +251,13 @@ void ELM327Emu::sendTxBuffer()
  */
 void ELM327Emu::processCmd()
 {
+    DEBUG("\n");
+    DEBUG("====================================================\n");
+    DEBUG("[APP->ELM RX] %s\n", incomingBuffer);
+    DEBUG("----------------------------------------------------\n");
+
     String retString = processELMCmd(incomingBuffer);
 
-    //==== AT command replies
-    DEBUG("\n");
-    DEBUG("----------------------------------------------------\n");
     DEBUG("[ELM->APP TX] %s\n",
           retString.c_str());
 

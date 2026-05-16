@@ -251,11 +251,6 @@ void ELM327Emu::sendTxBuffer()
  */
 void ELM327Emu::processCmd()
 {
-    DEBUG("\n");
-    DEBUG("====================================================\n");
-    DEBUG("[APP->ELM RX] %s\n", incomingBuffer);
-    DEBUG("----------------------------------------------------\n");
-
     String retString = processELMCmd(incomingBuffer);
 
     DEBUG("[ELM->APP TX] %s\n",
@@ -462,7 +457,6 @@ String ELM327Emu::processELMCmd(char *cmd)
             uint32_t valu = strtol((char *)cmd, NULL, 16); // the pid format is always in hex
             uint8_t pidnum = (uint8_t)(valu & 0xFF);
             uint8_t mode = (uint8_t)((valu >> 8) & 0xFF);
-            Logger::debug("Mode: %i, PID: %i", mode, pidnum);
             outFrame.data.uint8[0] = 2;
             outFrame.data.uint8[1] = mode;
             outFrame.data.uint8[2] = pidnum;
@@ -472,7 +466,6 @@ String ELM327Emu::processELMCmd(char *cmd)
             uint32_t valu = strtol((char *)cmd, NULL, 16); // the pid format is always in hex
             uint16_t pidnum = (uint8_t)(valu & 0xFFFF);
             uint8_t mode = (uint8_t)((valu >> 16) & 0xFF);
-            Logger::debug("Mode: %i, PID: %i", mode, pidnum);
             outFrame.data.uint8[0] = 3;
             outFrame.data.uint8[1] = mode;
             outFrame.data.uint8[2] = pidnum >> 8;

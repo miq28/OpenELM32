@@ -200,6 +200,8 @@ void ELM327Emu::loop()
                       activeTxn,
                       replyAccumulator.c_str());
 
+                DEBUG("====================================================\n\n");
+
                 txBuffer.sendString(replyAccumulator);
 
                 txBuffer.sendString(">");
@@ -252,18 +254,13 @@ void ELM327Emu::processCmd()
     String retString = processELMCmd(incomingBuffer);
 
     //==== AT command replies
+    DEBUG("\n");
+    DEBUG("----------------------------------------------------\n");
     DEBUG("[ELM->APP TX] %s\n",
           retString.c_str());
 
     txBuffer.sendString(retString);
     sendTxBuffer();
-    if (Logger::isDebug())
-    {
-        char buff[300];
-        retString = "Reply:" + retString;
-        retString.toCharArray(buff, 300);
-        Logger::debug(buff);
-    }
 }
 
 String ELM327Emu::processELMCmd(char *cmd)

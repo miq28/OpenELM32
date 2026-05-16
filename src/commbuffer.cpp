@@ -75,7 +75,6 @@ void CommBuffer::sendCharString(char *str)
         sendByteToBuffer(*p++);
         i++;
     }
-    Logger::debug("Queued %i bytes", i);
 }
 
 bool CommBuffer::appendFormatted(const char *fmt, ...)

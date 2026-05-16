@@ -70,6 +70,7 @@ public:
     void processCANReply(CAN_FRAME &frame);
     bool getMonitorMode();
     void setSendingBus(int bus) { sendingBus = bus; }
+    bool isWaitingForReply() const { return waitingForReply; }
 
 private:
 #ifndef CONFIG_IDF_TARGET_ESP32S3

@@ -59,6 +59,10 @@ lib
 .vscode/launch.json
 .vscode/ipch
 
+.venv/
+__pycache__/
+*.pyc
+
 # # 1. Ignore everything inside the platforms folder
 # platforms/**/*
 

@@ -1,0 +1,20 @@
+sudo ip link set can0 down
+sudo ip link set can0 type can bitrate 500000
+sudo ip link set can0 up
+
+./icsim can0
+./controls can0
+candump can0
+
+ssh -X kali@192.168.252.128
+ssh -Y kali@192.168.252.128
+sudo ip link set can0 txqueuelen 1000
+
+sudo slcand -o -c -s6 /dev/ttyACM0 can0
+
+$env:DISPLAY="127.0.0.1:0.0"
+ssh -Y kali@192.168.252.128
+
+1. Install an X Server on WindowsYour Windows host needs a software to handle the Linux graphics.Download and install VcXsrv (Windows X Server).Launch VcXsrv using the XLaunch shortcut.Choose Multiple windows -> Next.Choose Start no client -> Next.Crucial Step: Check the box for "Disable access control" -> Next -> Finish.2. Disconnect and Reconnect with X11 Forwarding
+
+source .venv/bin/activate

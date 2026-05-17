@@ -57,6 +57,7 @@ ELM327Emu::ELM327Emu()
     bLineFeed = true;
     bMonitorMode = false;
     bDLC = false;
+    bSpaces = true;
     sendingBus = 0;
     currentProtocol = 6;
 
@@ -184,7 +185,7 @@ void ELM327Emu::loop()
         // ---- collected replies, wait a short quiet window ----
         if (gotReply)
         {
-            if ((now - lastReplyTime) > 50)
+            if ((now - lastReplyTime) > 8)
             {
                 waitingForReply = false;
 
@@ -336,6 +337,11 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strncmp(cmd, "attp", 4))
         {
+            // emulate OBDLink behavior:
+            // after protocol selection use physical ECU addressing
+
+            ecuAddress = 0x7E0;
+
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atsp", 4))
@@ -359,7 +365,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "atdpn"))
         {
-            sprintf(buffer, "%X", currentProtocol);
+            sprintf(buffer, "A%X", currentProtocol);
 
             retString.concat(buffer);
         }
@@ -383,7 +389,16 @@ String ELM327Emu::processELMCmd(char *cmd)
             bMonitorMode = true;
         }
         else if (!strncmp(cmd, "ats", 3))
-        { // spaces on/off
+        {
+            if (cmd[3] == '0')
+            {
+                bSpaces = false;
+            }
+            else
+            {
+                bSpaces = true;
+            }
+
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atm", 3))
@@ -877,34 +892,86 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     // ===== HEADER =====
     if (bHeader || bMonitorMode)
     {
-        sprintf(buff, "%03X ", frame.id);
+        if (bSpaces)
+        {
+            sprintf(buff,
+                    "%03X ",
+                    frame.id);
+        }
+        else
+        {
+            sprintf(buff,
+                    "%03X",
+                    frame.id);
+        }
 
         replyAccumulator += buff;
     }
 
-    // ===== DLC =====
-    if (bDLC)
+    // ===== DLC / PCI =====
+    if (bDLC || bHeader)
     {
-        sprintf(buff, "%u ", frame.length);
+        if (bSpaces)
+        {
+            sprintf(buff,
+                    "%02X ",
+                    frame.data.uint8[0]);
+        }
+        else
+        {
+            sprintf(buff,
+                    "%02X",
+                    frame.data.uint8[0]);
+        }
 
         replyAccumulator += buff;
     }
 
-    // ===== DATA =====
-    for (int i = 0; i < frame.data.uint8[0]; i++)
+    // ===== PAYLOAD =====
+    // byte0 = ISO-TP payload length
+    // payload starts at byte1
+
+    uint8_t payloadLen = frame.data.uint8[0];
+
+    // sanity clamp
+    if (payloadLen > 7)
     {
-        sprintf(buff, "%02X ", frame.data.uint8[1 + i]);
+        payloadLen = 7;
+    }
+
+    for (int i = 0; i < payloadLen; i++)
+    {
+        if (bSpaces)
+        {
+            sprintf(buff,
+                    "%02X ",
+                    frame.data.uint8[1 + i]);
+        }
+        else
+        {
+            sprintf(buff,
+                    "%02X",
+                    frame.data.uint8[1 + i]);
+        }
 
         replyAccumulator += buff;
     }
 
-    // trim trailing space
-    if (replyAccumulator.length() > 0 &&
+    // trim trailing space only when spaces enabled
+    if (bSpaces &&
+        replyAccumulator.length() > 0 &&
         replyAccumulator.endsWith(" "))
     {
         replyAccumulator.remove(
             replyAccumulator.length() - 1);
     }
 
-    replyAccumulator += "\r\n";
+    if (bLineFeed)
+    {
+        replyAccumulator += "\r\n";
+    }
+    else
+    {
+        replyAccumulator += "\r";
+    }
 }

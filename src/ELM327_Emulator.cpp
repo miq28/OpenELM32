@@ -349,14 +349,25 @@ String ELM327Emu::processELMCmd(char *cmd)
             uint8_t requested =
                 strtol(cmd + 4, NULL, 16);
 
-            if (requested == 6)
+            switch (requested)
             {
+            case 0:
+                // automatic protocol
                 currentProtocol = 6;
+                ecuAddress = 0x7E0;
                 retString.concat("OK");
-            }
-            else
-            {
-                retString.concat("?");
+                break;
+
+            case 6:
+                // ISO 15765-4 CAN 11/500
+                currentProtocol = 6;
+                ecuAddress = 0x7E0;
+                retString.concat("OK");
+                break;
+
+            default:
+                retString.concat("OK");
+                break;
             }
         }
         else if (!strcmp(cmd, "atdp"))

@@ -12,6 +12,16 @@ sudo ip link set can0 txqueuelen 1000
 
 sudo slcand -o -c -s6 /dev/ttyACM0 can0
 
+sudo ip link set can0 up
+
+sudo ip link set can0 up type can bitrate 500000
+
+candump can0
+
+cansend can0 7E8#064100BE3FA813AA
+
+ip -details link show can0
+
 $env:DISPLAY="127.0.0.1:0.0"
 ssh -Y kali@192.168.252.128
 

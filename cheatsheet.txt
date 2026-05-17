@@ -28,3 +28,282 @@ ssh -Y kali@192.168.252.128
 1. Install an X Server on WindowsYour Windows host needs a software to handle the Linux graphics.Download and install VcXsrv (Windows X Server).Launch VcXsrv using the XLaunch shortcut.Choose Multiple windows -> Next.Choose Start no client -> Next.Crucial Step: Check the box for "Disable access control" -> Next -> Finish.2. Disconnect and Reconnect with X11 Forwarding
 
 source .venv/bin/activate
+.\.venv\Scripts\Activate.ps1
+
+in windows:
+python.exe -m pip install --upgrade pip wheel setuptools
+
+in linux:
+pip install --upgrade pip wheel setuptools
+
+
+win-can-utils
+canserver slcan -c COM9 --bitrate 500000
+candump COM9
+
+
+
+# 1. Install pyenv
+
+Official:
+[pyenv](https://github.com/pyenv/pyenv?utm_source=chatgpt.com)
+
+Since your `.zshrc` pyenv bootstrap is already working/finalized, you mainly need installation + usage.
+
+---
+
+# 2. Install Python version
+
+Example:
+
+```bash id="mjlwm8"
+pyenv install 3.11.11
+```
+
+Verify:
+
+```bash id="yjlwm1"
+pyenv versions
+```
+
+---
+
+# 3. Create project folder
+
+Example:
+
+```bash id="3jlwmf"
+mkdir ~/projects/ecu-sim
+cd ~/projects/ecu-sim
+```
+
+---
+
+# 4. Set local Python version
+
+This creates:
+
+```text id="1jlwm2"
+.python-version
+```
+
+Command:
+
+```bash id="5jlwmq"
+pyenv local 3.11.11
+```
+
+Verify:
+
+```bash id="8jlwmx"
+python --version
+```
+
+Should show:
+
+```text id="ajlwmc"
+Python 3.11.11
+```
+
+---
+
+# 5. Create virtual environment
+
+Recommended:
+
+```bash id="kjlwm4"
+python -m venv .venv
+```
+
+Activate:
+
+```bash id="fjlwm0"
+source .venv/bin/activate
+```
+
+Prompt becomes:
+
+```text id="mjlwm7"
+(.venv)
+```
+
+---
+
+# 6. Upgrade pip
+
+```bash id="ujlwmu"
+pip install --upgrade pip wheel setuptools
+```
+
+---
+
+# 7. Install CAN packages
+
+## Core
+
+```bash id="1jlwmv"
+pip install python-can
+```
+
+## For SocketCAN tools/helpers
+
+```bash id="9jlwm6"
+pip install can-isotp
+```
+
+Optional:
+
+```bash id="pjlwmw"
+pip install cantools
+```
+
+Useful later for DBC decoding.
+
+Official:
+
+* [python-can](https://python-can.readthedocs.io/en/stable/?utm_source=chatgpt.com)
+* [can-isotp](https://github.com/pylessard/python-can-isotp?utm_source=chatgpt.com)
+* [cantools](https://github.com/cantools/cantools?utm_source=chatgpt.com)
+
+---
+
+# 8. Install Linux CAN utilities
+
+Ubuntu/Debian:
+
+```bash id="0jlwmz"
+sudo apt install can-utils
+```
+
+Official:
+[can-utils](https://github.com/linux-can/can-utils?utm_source=chatgpt.com)
+
+---
+
+# 9. Bring up CAN interface
+
+Example for SocketCAN:
+
+```bash id="xjlwm9"
+sudo ip link set can0 up type can bitrate 500000
+```
+
+Verify:
+
+```bash id="x7jlwm"
+ip -details link show can0
+```
+
+---
+
+# 10. Test CAN traffic
+
+Terminal 1:
+
+```bash id="dxjlw0"
+candump can0
+```
+
+Terminal 2:
+
+```bash id="gtjlwm"
+cansend can0 7E8#064100BE3FA813AA
+```
+
+---
+
+# 11. Create ECU simulator
+
+File:
+
+```text id="pjlwmr"
+ecu_sim.py
+```
+
+Example:
+
+```python id="k7jlwm"
+import can
+
+bus = can.interface.Bus(
+    channel='can0',
+    interface='socketcan'
+)
+
+print("ECU simulator started")
+
+while True:
+    msg = bus.recv()
+
+    if msg is None:
+        continue
+
+    print(f"RX: {msg}")
+
+    if msg.arbitration_id == 0x7DF:
+
+        data = list(msg.data)
+
+        # 0100
+        if data[:3] == [0x02, 0x01, 0x00]:
+
+            resp = can.Message(
+                arbitration_id=0x7E8,
+                data=[
+                    0x06,
+                    0x41,
+                    0x00,
+                    0xBE,
+                    0x3F,
+                    0xA8,
+                    0x13,
+                    0xAA
+                ],
+                is_extended_id=False
+            )
+
+            bus.send(resp)
+
+            print(f"TX: {resp}")
+```
+
+Run:
+
+```bash id="2jlwm5"
+python ecu_sim.py
+```
+
+---
+
+# 12. Expected result
+
+ESP logs:
+
+```text id="hjlwmm"
+[APP->ELM xx] CMD:0100
+[ELM->CAN xx TX] id:7DF ...
+[CAN->ELM xx RX] id:7E8 ...
+[ELM->APP xx TX] 41 00 BE 3F A8 13>
+```
+
+Torque app should connect successfully and show supported PID map.
+
+---
+
+# Recommended `.gitignore`
+
+```gitignore id="rjlwm8"
+.venv/
+__pycache__/
+*.pyc
+```
+
+---
+
+Good commit after environment + first ECU auto-response working.
+
+Suggested commit:
+
+```text id="djlwm3"
+add python socketcan ecu simulator environment
+```

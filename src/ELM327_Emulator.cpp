@@ -467,7 +467,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         if (cmdSize == 6) // custom PIDs for specific vehicles
         {
             uint32_t valu = strtol((char *)cmd, NULL, 16); // the pid format is always in hex
-            uint16_t pidnum = (uint8_t)(valu & 0xFFFF);
+            uint16_t pidnum = (uint16_t)(valu & 0xFFFF);
             uint8_t mode = (uint8_t)((valu >> 16) & 0xFF);
             outFrame.data.uint8[0] = 3;
             outFrame.data.uint8[1] = mode;
@@ -842,7 +842,13 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     uint8_t sid = frame.data.uint8[1];
 
     // positive response SID must equal request SID + 0x40
-    if (sid != (pendingMode + 0x40))
+    bool positive =
+        (sid == (pendingMode + 0x40));
+
+    bool negative =
+        (sid == 0x7F);
+
+    if (!positive && !negative)
     {
         return;
     }

@@ -171,7 +171,6 @@ struct EEPROMSettings
     uint8_t logLevel;   // Level of logging to output on serial line
     uint8_t systemType; // 0 = A0RET, 1 = EVTV ESP32 Board, 2 = Macchine 5-CAN board
 
-    bool enableBT; // are we enabling bluetooth too?
     char btName[62];
     int sendingBus;
 

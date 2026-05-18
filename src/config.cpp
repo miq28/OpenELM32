@@ -22,15 +22,6 @@ void printEEPROMSettings(const EEPROMSettings &cfg)
                   cfg.systemType);
 
     // ------------------------------------------------------------------
-    // Bluetooth
-    // ------------------------------------------------------------------
-
-    consolePrintf("enableBT             : %s\n",
-                  cfg.enableBT ? "true" : "false");
-    consolePrintf("btName               : %s\n",
-                  cfg.btName);
-
-    // ------------------------------------------------------------------
     // Bus
     // ------------------------------------------------------------------
 

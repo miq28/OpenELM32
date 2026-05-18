@@ -52,9 +52,6 @@ AT RV (adapter voltage) - Send something like 14.4V
 #include <Arduino.h>
 #include <WiFi.h>
 #include "commbuffer.h"
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-#include "BluetoothSerial.h"
-#endif
 
 class CAN_FRAME;
 
@@ -71,11 +68,9 @@ public:
     bool getMonitorMode();
     void setSendingBus(int bus) { sendingBus = bus; }
     bool isWaitingForReply() const { return waitingForReply; }
+    void processIncomingByte(uint8_t incoming);
 
 private:
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-    BluetoothSerial serialBT;
-#endif
     WiFiClient *mClient;
     CommBuffer txBuffer;
     char incomingBuffer[128]; // storage for one incoming line

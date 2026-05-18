@@ -98,7 +98,6 @@ void SerialConsole::printMenu()
     Logger::console("BINSERIAL=%i - Enable/Disable Binary Sending of CANBus Frames to Serial (0=Dis, 1=En)", settings.useBinarySerialComm);
     consolePrintln();
 
-    Logger::console("BTMODE=%i - Set mode for Bluetooth (0 = Off, 1 = On)", settings.enableBT);
     Logger::console("BTNAME=%s - Set advertised Bluetooth name", settings.btName);
     Logger::console("SENDBUS=%i - Set which CAN bus to send messages from ELM327 emulator", settings.sendingBus);
     consolePrintln();
@@ -469,16 +468,6 @@ void SerialConsole::handleConfigCmd()
         settings.useBinarySerialComm = newValue;
         writeEEPROM = true;
     }
-    else if (cmdString == String("BTMODE"))
-    {
-        if (newValue < 0)
-            newValue = 0;
-        if (newValue > 1)
-            newValue = 1;
-        Logger::console("Setting Bluetooth Mode to %i", newValue);
-        settings.enableBT = newValue;
-        writeEEPROM = true;
-    }
     else if (cmdString == String("CONSOLECAN"))
     {
         if (newValue < 0)
@@ -656,7 +645,6 @@ void SerialConsole::handleConfigCmd()
         }
 
         prefs.putBool("binarycomm", settings.useBinarySerialComm);
-        prefs.putBool("enable-bt", settings.enableBT);
         prefs.putInt("sendingBus", settings.sendingBus);
         prefs.putBool("enableLawicel", settings.enableLawicel);
 

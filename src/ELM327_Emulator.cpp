@@ -37,9 +37,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "esp32_can.h"
 #include "can_manager.h"
 #include "debug.h"
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-#include "BluetoothSerial.h"
-#endif
+#include "BLESerialBridge.h"
+
+extern BLESerialBridge bleBridge;
 
 static uint32_t elmTxnCounter = 0;
 
@@ -77,16 +77,6 @@ ELM327Emu::ELM327Emu()
     virtualECUEnabled = settings.enableVirtualOBD;
 }
 
-/*
- * Initialization of hardware and parameters
- */
-void ELM327Emu::setup()
-{
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-    serialBT.begin(settings.btName);
-#endif
-}
-
 void ELM327Emu::setWiFiClient(WiFiClient *client)
 {
     mClient = client;
@@ -121,59 +111,21 @@ void ELM327Emu::sendCmd(String cmd)
 void ELM327Emu::loop()
 {
     int incoming;
-    if (!mClient) // bluetooth
-    {
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-        while (serialBT.available())
-        {
-            incoming = serialBT.read();
-            if (incoming != -1)
-            { // and there is no reason it should be -1
-                if (incoming == 13 || ibWritePtr > 126)
-                {                                   // on CR or full buffer, process the line
-                    incomingBuffer[ibWritePtr] = 0; // null terminate the string
-                    ibWritePtr = 0;                 // reset the write pointer
 
-                    processCmd();
-                }
-                else
-                { // add more characters
-                    if (incoming > 20 && bMonitorMode)
-                    {
-                        Logger::debug("Exiting monitor mode");
-                        bMonitorMode = false;
-                    }
-                    if (incoming != 10 && incoming != ' ')                      // don't add a LF character or spaces. Strip them right out
-                        incomingBuffer[ibWritePtr++] = (char)tolower(incoming); // force lowercase to make processing easier
-                }
-            }
-            else
-                return;
-        }
-#endif
-    }
-    else // wifi and there is a client
+    if (mClient) // wifi and there is a client
     {
         while (mClient->available())
         {
             incoming = mClient->read();
-            if (incoming != -1)
-            { // and there is no reason it should be -1
-                if (incoming == 13 || ibWritePtr > 126)
-                {                                   // on CR or full buffer, process the line
-                    incomingBuffer[ibWritePtr] = 0; // null terminate the string
-                    ibWritePtr = 0;                 // reset the write pointer
 
-                    processCmd();
-                }
-                else
-                {                                                               // add more characters
-                    if (incoming != 10 && incoming != ' ')                      // don't add a LF character or spaces. Strip them right out
-                        incomingBuffer[ibWritePtr++] = (char)tolower(incoming); // force lowercase to make processing easier
-                }
+            if (incoming != -1)
+            {
+                processIncomingByte((uint8_t)incoming);
             }
             else
+            {
                 return;
+            }
         }
     }
 
@@ -230,13 +182,13 @@ void ELM327Emu::sendTxBuffer()
             txBuffer.flushToEndpoint(endpoint);
         }
     }
-    else // bluetooth then
+    else if (bleBridge.connected())
     {
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-        TransportEndpoint endpoint(&serialBT);
+        bleBridge.send(
+            txBuffer.getBufferedBytes(),
+            txBuffer.numAvailableBytes());
 
-        txBuffer.flushToEndpoint(endpoint);
-#endif
+        txBuffer.clearBufferedBytes();
     }
 }
 
@@ -984,5 +936,34 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     else
     {
         replyAccumulator += "\r";
+    }
+}
+
+void ELM327Emu::processIncomingByte(
+    uint8_t incoming)
+{
+    if (incoming == 13 || ibWritePtr > 126)
+    {
+        incomingBuffer[ibWritePtr] = 0;
+
+        ibWritePtr = 0;
+
+        processCmd();
+    }
+    else
+    {
+        if (incoming > 20 && bMonitorMode)
+        {
+            Logger::debug("Exiting monitor mode");
+
+            bMonitorMode = false;
+        }
+
+        if (incoming != 10 &&
+            incoming != ' ')
+        {
+            incomingBuffer[ibWritePtr++] =
+                (char)tolower(incoming);
+        }
     }
 }

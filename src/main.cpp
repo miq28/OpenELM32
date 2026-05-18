@@ -41,6 +41,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Logger.h"
 #include "rgb_status.h"
 #include "console_io.h"
+#include "BLESerialBridge.h"
 
 const char *resetReasonToStr(esp_reset_reason_t r)
 {
@@ -91,7 +92,6 @@ void printPrefs()
     consolePrintf("STA_PASS=%s\n", prefs.getString("STA_PASS", "").c_str());
     consolePrintf("binarycomm=%d\n", prefs.getBool("binarycomm", false));
     consolePrintf("loglevel=%u\n", prefs.getUChar("loglevel", 0));
-    consolePrintf("enable-bt=%d\n", prefs.getBool("enable-bt", false));
     consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
     consolePrintf("sendingBus=%d\n", prefs.getInt("sendingBus", 0));
     consolePrintf("btname=%s\n", prefs.getString("btname", "").c_str());
@@ -337,7 +337,6 @@ void loadSettings()
     settings.useBinarySerialComm = prefs.getBool("binarycomm", false);
     settings.logLevel = prefs.getUChar("loglevel", 1); // info
     settings.wifiMode = prefs.getUChar("wifiMode", 2); // Wifi defaults to creating an AP
-    settings.enableBT = prefs.getBool("enable-bt", false);
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
     settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
     settings.sendingBus = prefs.getInt("sendingBus", 0);
@@ -532,11 +531,8 @@ void setup()
     // CAN0.setDebuggingMode(true);
     // CAN1.setDebuggingMode(true);
 
-    if (settings.enableBT)
-    {
-        consolePrintln("Starting bluetooth");
-        elmEmulator.setup();
-    }
+    consolePrintln("Starting BLE");
+    bleBridge.begin(settings.btName);
 
     /*else*/ wifiManager.setup();
 
@@ -548,8 +544,6 @@ void setup()
     SysSettings.lawicelPollCounter = 0;
 
     rgbStatusInit();
-
-    // elmEmulator.setup();
 
     // xTaskCreatePinnedToCore(
     //     statsTask,
@@ -661,4 +655,6 @@ void loop()
     rgbStatusLoop();
 
     elmEmulator.loop();
+
+    bleBridge.loop();
 }

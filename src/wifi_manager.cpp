@@ -271,9 +271,6 @@ static size_t getFrameSize(const uint8_t *buf, size_t available)
 
 void WiFiManager::loop()
 {
-    if (settings.enableBT != 0)
-        return; // No wifi if BT is on
-
     int i;
 
     if (WiFi.isConnected() || settings.wifiMode == 2)
@@ -405,9 +402,6 @@ void WiFiManager::loop()
 
 void WiFiManager::sendBufferedData()
 {
-    if (settings.enableBT != 0)
-        return;
-
     static uint32_t lastLog = 0;
     if (millis() - lastLog > 300)
     {

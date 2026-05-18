@@ -259,17 +259,17 @@ void statsTask(void *param)
 
             // DEBUG("[CAN] RX:%lu/s drop:%lu/s buf:%u%% max:%u%% | TX a:%lu ok:%lu f:%lu d:%lu b:%lu h:%.1fkB (min:%.1fkB)\n",
             consolePrintf("[STATS] h:%.1fkB (min:%.1fkB)\n",
-                  //   CANRxBuffer::getRateRx(),
-                  //   CANRxBuffer::getRateDrop(),
-                  //   usage_pct,
-                  //   max_pct,
-                  //   CANTxBuffer::getRateAttempt(),
-                  //   CANTxBuffer::getRateOk(),
-                  //   CANTxBuffer::getRateFail(),
-                  //   CANTxBuffer::getRateDrop(),
-                  //   CANTxBuffer::getRateBlock(),
-                  heap_kb,
-                  min_kb);
+                          //   CANRxBuffer::getRateRx(),
+                          //   CANRxBuffer::getRateDrop(),
+                          //   usage_pct,
+                          //   max_pct,
+                          //   CANTxBuffer::getRateAttempt(),
+                          //   CANTxBuffer::getRateOk(),
+                          //   CANTxBuffer::getRateFail(),
+                          //   CANTxBuffer::getRateDrop(),
+                          //   CANTxBuffer::getRateBlock(),
+                          heap_kb,
+                          min_kb);
         }
 
         vTaskDelay(pdMS_TO_TICKS(50)); // yield CPU
@@ -343,8 +343,7 @@ void loadSettings()
 
     if (prefs.getString("btname", settings.btName, 32) == 0)
     {
-        strcpy(settings.btName, "ELM327-");
-        strcat(settings.btName, deviceName);
+        strcpy(settings.btName, deviceName);
     }
 
     debug_enabled = prefs.getBool("dbg_en", true);
@@ -507,13 +506,13 @@ void setup()
     consolePrintf("\n=== BOOT ===\n");
     esp_reset_reason_t r = esp_reset_reason();
     consolePrintf("Reset reason=%s (%d)\n",
-          resetReasonToStr(r), r);
+                  resetReasonToStr(r), r);
 
     float heap_kb = esp_get_free_heap_size() / 1024.0f;
     float min_kb = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT) / 1024.0f;
     consolePrintf("HeapBeforeSetup=%.1f kB (min:%.1f kB)\n",
-          heap_kb,
-          min_kb);
+                  heap_kb,
+                  min_kb);
 
     checkESPBoard();
 
@@ -532,9 +531,9 @@ void setup()
     // CAN1.setDebuggingMode(true);
 
     consolePrintln("Starting BLE");
-    bleBridge.begin(settings.btName);
+    bleBridge.begin(deviceName);
 
-    /*else*/ wifiManager.setup();
+    wifiManager.setup();
 
     canManager.setup();
 
@@ -558,8 +557,8 @@ void setup()
     heap_kb = esp_get_free_heap_size() / 1024.0f;
     min_kb = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT) / 1024.0f;
     consolePrintf("HeapAfterSetup=%.1f kB (min:%.1f kB)\n",
-          heap_kb,
-          min_kb);
+                  heap_kb,
+                  min_kb);
 
     consolePrint("Done with init\n");
     debug_to_serial = false;

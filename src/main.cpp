@@ -524,9 +524,6 @@ void setup()
 
     loadSettings();
 
-    printEEPROMSettings(settings);
-    printSystemSettings(SysSettings);
-
     // CAN0.setDebuggingMode(true);
     // CAN1.setDebuggingMode(true);
 
@@ -536,6 +533,9 @@ void setup()
     wifiManager.setup();
 
     canManager.setup();
+
+    printEEPROMSettings(settings);
+    printSystemSettings(SysSettings);
 
     SysSettings.lawicelMode = false;
     SysSettings.lawicelAutoPoll = false;

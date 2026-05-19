@@ -184,7 +184,7 @@ void ELM327Emu::sendTxBuffer()
     }
     else if (bleBridge.connected())
     {
-        bleBridge.send(
+        bleBridge.sendData(
             txBuffer.getBufferedBytes(),
             txBuffer.numAvailableBytes());
 
@@ -224,6 +224,27 @@ String ELM327Emu::processELMCmd(char *cmd)
         lineEnding = String("\r\n");
     else
         lineEnding = String("\r");
+
+    // ==========================================
+    // FIX: Intercept STN Custom Hardware Info Commands
+    // ==========================================
+    if (!strcasecmp(cmd, "sti")) 
+    {
+        if (bEcho) { retString.concat(cmd); retString.concat(lineEnding); }
+        retString.concat("STN1110 v1.3a");
+        retString.concat(lineEnding);
+        retString.concat(">");
+        return retString;
+    }
+    if (!strcasecmp(cmd, "vti")) 
+    {
+        if (bEcho) { retString.concat(cmd); retString.concat(lineEnding); }
+        retString.concat("OBDLink MX v1.3a");
+        retString.concat(lineEnding);
+        retString.concat(">");
+        return retString;
+    }
+    // ==========================================
 
     if (bEcho)
     {

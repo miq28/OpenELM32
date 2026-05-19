@@ -527,15 +527,17 @@ void setup()
     // CAN0.setDebuggingMode(true);
     // CAN1.setDebuggingMode(true);
 
+    printEEPROMSettings(settings);
+    printSystemSettings(SysSettings);
+
+    delay(100); // just to make sure all the debug output is done before we start doing things that might mess with it
+
     consolePrintln("Starting BLE");
     bleBridge.begin(deviceName);
 
     wifiManager.setup();
 
     canManager.setup();
-
-    printEEPROMSettings(settings);
-    printSystemSettings(SysSettings);
 
     SysSettings.lawicelMode = false;
     SysSettings.lawicelAutoPoll = false;

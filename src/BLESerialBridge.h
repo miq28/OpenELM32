@@ -9,7 +9,7 @@ public:
     void begin(const char *name);
     void loop();
 
-    void send(const uint8_t *data, size_t len);
+    void sendData(const uint8_t *data, size_t len);
     bool connected();
 
 private:

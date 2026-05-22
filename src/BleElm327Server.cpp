@@ -1,4 +1,6 @@
 #include "BleElm327Server.h"
+#include "debug.h"
+#include "console_io.h"
 
 static BleElm327Server* g_bleServer = nullptr;
 
@@ -9,25 +11,25 @@ public:
 
     void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
         owner.clientConnected = true;
-        Serial.printf("[BLE] Client connected. Address: %s, ID Address: %s, Handle: %u\n",
+        consolePrintf("[BLE] Client connected. Address: %s, ID Address: %s, Handle: %u\n",
                       connInfo.getAddress().toString().c_str(),
                       connInfo.getIdAddress().toString().c_str(),
                       connInfo.getConnHandle());
-        Serial.printf("[BLE] Connection details:\n%s\n", connInfo.toString().c_str());
+        consolePrintf("[BLE] Connection details:\n%s\n", connInfo.toString().c_str());
     }
 
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
         owner.clientConnected = false;
-        Serial.printf("[BLE] Client disconnected. Reason: %d (%s). Restarting advertising...\n",
+        consolePrintf("[BLE] Client disconnected. Reason: %d (%s). Restarting advertising...\n",
                       reason,
                       NimBLEUtils::returnCodeToString(reason));
         if (!NimBLEDevice::startAdvertising()) {
-            Serial.println("[BLE] Failed to restart advertising");
+            consolePrintln("[BLE] Failed to restart advertising");
         }
     }
 
     void onMTUChange(uint16_t mtu, NimBLEConnInfo& connInfo) override {
-        Serial.printf("[BLE] MTU updated: %u for handle: %u\n", mtu, connInfo.getConnHandle());
+        consolePrintf("[BLE] MTU updated: %u for handle: %u\n", mtu, connInfo.getConnHandle());
     }
 
 private:
@@ -41,14 +43,14 @@ public:
 
     void onRead(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo) override {
         characteristic->setValue(owner.lastResponse);
-        Serial.printf("[BLE] Read %s: %s\n",
+        consolePrintf("[BLE] Read %s: %s\n",
                       characteristic->getUUID().toString().c_str(),
                       printable(owner.lastResponse).c_str());
     }
 
     void onWrite(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo) override {
         String data = characteristic->getValue();
-        Serial.printf("[BLE] Write %s: %s\n",
+        consolePrintf("[BLE] Write %s: %s\n",
                       characteristic->getUUID().toString().c_str(),
                       printable(data).c_str());
 
@@ -59,7 +61,7 @@ public:
     }
 
     void onSubscribe(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        Serial.printf("[BLE] Subscribe %s: %s\n",
+        consolePrintf("[BLE] Subscribe %s: %s\n",
                       characteristic->getUUID().toString().c_str(),
                       subValue == 0 ? "off" : "on");
     }
@@ -143,9 +145,9 @@ void BleElm327Server::begin() {
     advertising->setConnectableMode(BLE_GAP_CONN_MODE_UND);
 
     if (advertising->start(0)) {
-        Serial.printf("[BOOT] Advertising as %s\n", deviceName);
+        consolePrintf("[BOOT] Advertising as %s\n", deviceName);
     } else {
-        Serial.println("[BOOT] Failed to start advertising");
+        consolePrintln("[BOOT] Failed to start advertising");
     }
 }
 
@@ -162,7 +164,7 @@ void BleElm327Server::notifyResponse(const String& response) {
         genericSerialChar->notify();
     }
 
-    Serial.printf("[ELM] Response: %s\n", printable(response).c_str());
+    consolePrintf("[ELM] Response: %s\n", printable(response).c_str());
 }
 
 String BleElm327Server::printable(String value) {

@@ -95,7 +95,7 @@ void BleElm327Server::begin() {
     NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
     NimBLEDevice::setSecurityAuth(false, false, false);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
-    NimBLEDevice::setMTU(247);
+    NimBLEDevice::setMTU(517);
 
     NimBLEServer* server = NimBLEDevice::createServer();
     server->setCallbacks(serverCallbacks);
@@ -153,15 +153,17 @@ void BleElm327Server::begin() {
 
 void BleElm327Server::notifyResponse(const String& response) {
     lastResponse = response;
-
+    
     if (obdlinkNotifyChar != nullptr) {
         obdlinkNotifyChar->setValue(response);
         obdlinkNotifyChar->notify();
+        consolePrintf("[BLE] FFF1 notify: %zu bytes\n", response.length());
     }
 
     if (genericSerialChar != nullptr) {
         genericSerialChar->setValue(response);
         genericSerialChar->notify();
+        consolePrintf("[BLE] FFE1 notify: %zu bytes\n", response.length());
     }
 
     consolePrintf("[ELM] Response: %s\n", printable(response).c_str());

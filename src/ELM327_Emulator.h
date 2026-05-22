@@ -63,6 +63,7 @@ public:
     void handleTick(); // periodic processes
     void loop();
     void setWiFiClient(WiFiClient *client);
+    void useBLETransport();
     void sendCmd(String cmd);
     void processCANReply(CAN_FRAME &frame);
     bool getMonitorMode();
@@ -71,7 +72,14 @@ public:
     void processIncomingByte(uint8_t incoming);
 
 private:
+    enum ActiveTransport
+    {
+        TRANSPORT_WIFI,
+        TRANSPORT_BLE
+    };
+
     WiFiClient *mClient;
+    ActiveTransport activeTransport;
     CommBuffer txBuffer;
     char incomingBuffer[128]; // storage for one incoming line
     char buffer[30];          // a buffer for various string conversions
@@ -81,7 +89,6 @@ private:
     bool bMonitorMode;        // should we output all frames?
     bool bDLC;                // output DLC?
     bool bSpaces;
-    bool virtualECUEnabled;
     uint32_t ecuAddress;
     int tickCounter;
     int ibWritePtr;
@@ -91,10 +98,6 @@ private:
 
     void processCmd();
     String processELMCmd(char *cmd);
-    bool processVirtualOBD(String &retString, char *cmd);
-
-    bool isVirtualPIDSupported(uint8_t mode, uint16_t pid);
-    uint32_t buildPIDBitmap(uint8_t basePID);
     void sendTxBuffer();
 
     bool waitingForReply;

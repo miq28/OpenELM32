@@ -50,6 +50,7 @@ ELM327Emu::ELM327Emu()
     ibWritePtr = 0;
     ecuAddress = 0x7DF;
     mClient = 0;
+    activeTransport = TRANSPORT_BLE;
     bEcho = false;
     bHeader = false;
     bLineFeed = true;
@@ -72,12 +73,16 @@ ELM327Emu::ELM327Emu()
 
     replyAccumulator = "";
 
-    virtualECUEnabled = settings.enableVirtualOBD;
 }
 
 void ELM327Emu::setWiFiClient(WiFiClient *client)
 {
     mClient = client;
+}
+
+void ELM327Emu::useBLETransport()
+{
+    activeTransport = TRANSPORT_BLE;
 }
 
 bool ELM327Emu::getMonitorMode()
@@ -114,6 +119,7 @@ void ELM327Emu::loop()
     {
         while (mClient->available())
         {
+            activeTransport = TRANSPORT_WIFI;
             incoming = mClient->read();
 
             if (incoming != -1)
@@ -171,16 +177,16 @@ void ELM327Emu::loop()
 
 void ELM327Emu::sendTxBuffer()
 {
-    if (mClient)
+    if (activeTransport == TRANSPORT_WIFI &&
+        mClient &&
+        mClient->connected())
     {
-        if (mClient->connected())
-        {
-            TransportEndpoint endpoint(mClient);
+        TransportEndpoint endpoint(mClient);
 
-            txBuffer.flushToEndpoint(endpoint);
-        }
+        txBuffer.flushToEndpoint(endpoint);
     }
-    else {
+    else
+    {
         BleElm327Server* bleServer = BleElm327Server::getInstance();
         if (bleServer != nullptr) {
             String response((const char*)txBuffer.getBufferedBytes(), txBuffer.numAvailableBytes());
@@ -264,6 +270,15 @@ String ELM327Emu::processELMCmd(char *cmd)
 
         if (!strcmp(cmd, "atz"))
         { // reset hardware
+            bEcho = false;
+            bHeader = false;
+            bLineFeed = true;
+            bMonitorMode = false;
+            bDLC = false;
+            bSpaces = true;
+            currentProtocol = 6;
+            ecuAddress = 0x7DF;
+
             retString.concat(lineEnding);
             retString.concat("ELM327 v1.3a");
         }
@@ -372,6 +387,15 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "atd"))
         { // set to defaults
+            bEcho = false;
+            bHeader = false;
+            bLineFeed = true;
+            bMonitorMode = false;
+            bDLC = false;
+            bSpaces = true;
+            currentProtocol = 6;
+            ecuAddress = 0x7DF;
+
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atma", 4)) // monitor all mode
@@ -379,7 +403,8 @@ String ELM327Emu::processELMCmd(char *cmd)
             Logger::debug("ENTERING monitor mode");
             bMonitorMode = true;
         }
-        else if (!strncmp(cmd, "ats", 3))
+        else if (!strcmp(cmd, "ats0") ||
+                 !strcmp(cmd, "ats1"))
         {
             if (cmd[3] == '0')
             {
@@ -498,21 +523,6 @@ String ELM327Emu::processELMCmd(char *cmd)
         canManager.displayFrame(outFrame, sendingBus);
         canManager.setSendToConsole(false);
         */
-        if (virtualECUEnabled &&
-            processVirtualOBD(retString, cmd))
-        {
-            if (bLineFeed)
-            {
-                retString.concat("\r\n>");
-            }
-            else
-            {
-                retString.concat("\r>");
-            }
-
-            return retString;
-        }
-
         // === CAN TX debug
         uint32_t txn = ++elmTxnCounter;
 
@@ -565,285 +575,6 @@ String ELM327Emu::processELMCmd(char *cmd)
     retString.concat(">"); // prompt to show we're ready to receive again
 
     return retString;
-}
-
-bool ELM327Emu::isVirtualPIDSupported(uint8_t mode, uint16_t pid)
-{
-    if (mode != 1)
-    {
-        return false;
-    }
-
-    switch (pid)
-    {
-    case 0x00:
-    case 0x05:
-    case 0x0C:
-    case 0x0D:
-    case 0x0F:
-    case 0x11:
-    case 0x2F:
-    case 0x20:
-    case 0x40:
-    case 0x60:
-    case 0x42:
-        return true;
-
-    default:
-        return false;
-    }
-}
-
-uint32_t ELM327Emu::buildPIDBitmap(uint8_t basePID)
-{
-    uint32_t bitmap = 0;
-
-    for (int i = 1; i <= 32; i++)
-    {
-        uint16_t pid = basePID + i;
-
-        if (isVirtualPIDSupported(1, pid))
-        {
-            bitmap |= (1UL << (32 - i));
-        }
-    }
-
-    return bitmap;
-}
-
-bool ELM327Emu::processVirtualOBD(String &retString, char *cmd)
-{
-    // ===== SUPPORTED PID MAP =====
-    if (!strncmp(cmd, "0100", 4))
-    {
-        uint32_t bitmap = buildPIDBitmap(0x00);
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 00 %02X %02X %02X %02X",
-                (bitmap >> 24) & 0xFF,
-                (bitmap >> 16) & 0xFF,
-                (bitmap >> 8) & 0xFF,
-                bitmap & 0xFF);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== RPM =====
-    if (!strncmp(cmd, "010c", 4))
-    {
-        static uint16_t fakeRPM = 850;
-
-        fakeRPM += 25;
-
-        if (fakeRPM > 3200)
-        {
-            fakeRPM = 850;
-        }
-
-        uint16_t raw = fakeRPM * 4;
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 0C %02X %02X",
-                (raw >> 8) & 0xFF,
-                raw & 0xFF);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== VEHICLE SPEED =====
-    if (!strncmp(cmd, "010d", 4))
-    {
-        static uint8_t fakeSpeed = 0;
-
-        fakeSpeed++;
-
-        if (fakeSpeed > 120)
-        {
-            fakeSpeed = 0;
-        }
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 0D %02X",
-                fakeSpeed);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== COOLANT TEMP =====
-    if (!strncmp(cmd, "0105", 4))
-    {
-        uint8_t tempValue = 90 + 40;
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 05 %02X",
-                tempValue);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== BATTERY VOLTAGE =====
-    if (!strncmp(cmd, "0142", 4))
-    {
-        uint16_t voltage = 1420;
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 42 %02X %02X",
-                (voltage >> 8) & 0xFF,
-                voltage & 0xFF);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== MODE 09 SUPPORTED PID MAP =====
-    if (!strncmp(cmd, "0900", 4))
-    {
-        // support PID 02 (VIN)
-
-        retString.concat("49 00 40 00 00 00");
-
-        return true;
-    }
-
-    // ===== VIN =====
-    if (!strncmp(cmd, "0902", 4)) // WEACTEST1234
-    {
-        retString.concat(
-            "49 02 01 57 45 41 43\r\n"
-            "49 02 02 54 45 53 54\r\n"
-            "49 02 03 31 32 33 34");
-
-        return true;
-    }
-    // ===== INTAKE AIR TEMP =====
-    if (!strncmp(cmd, "010f", 4))
-    {
-        uint8_t tempValue = 35 + 40;
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 0F %02X",
-                tempValue);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== THROTTLE POSITION =====
-    if (!strncmp(cmd, "0111", 4))
-    {
-        static uint8_t throttle = 10;
-
-        throttle += 3;
-
-        if (throttle > 90)
-        {
-            throttle = 10;
-        }
-
-        uint8_t raw =
-            (uint8_t)((throttle * 255) / 100);
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 11 %02X",
-                raw);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== FUEL LEVEL =====
-    if (!strncmp(cmd, "012f", 4))
-    {
-        uint8_t fuel = 72;
-
-        uint8_t raw =
-            (uint8_t)((fuel * 255) / 100);
-
-        char temp[64];
-
-        sprintf(temp,
-                "41 2F %02X",
-                raw);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    // ===== SUPPORTED PID MAP 20 =====
-    if (!strncmp(cmd, "0120", 4))
-    {
-        retString.concat("41 20 00 00 00 00");
-        return true;
-    }
-
-    // ===== SUPPORTED PID MAP 40 =====
-    if (!strncmp(cmd, "0140", 4))
-    {
-        retString.concat("41 40 44 00 00 00");
-        return true;
-    }
-
-    // ===== SUPPORTED PID MAP 60 =====
-    if (!strncmp(cmd, "0160", 4))
-    {
-        retString.concat("41 60 00 00 00 00");
-        return true;
-    }
-
-    // // ===== OBD AUTO DOCTOR UDS PROBE =====
-    // if (!strncmp(cmd, "22f802", 6))
-    // {
-    //     retString.concat("62 F8 02 00");
-
-    //     return true;
-    // }
-
-    // ===== GENERIC UDS NEGATIVE RESPONSE =====
-    if (strlen(cmd) >= 6)
-    {
-        uint8_t mode =
-            (uint8_t)strtol(String(cmd).substring(0, 2).c_str(),
-                            NULL,
-                            16);
-
-        char temp[64];
-
-        sprintf(temp,
-                "7F %02X 31",
-                mode);
-
-        retString.concat(temp);
-
-        return true;
-    }
-
-    return false;
 }
 
 void ELM327Emu::processCANReply(CAN_FRAME &frame)

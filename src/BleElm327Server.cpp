@@ -54,6 +54,8 @@ public:
                       characteristic->getUUID().toString().c_str(),
                       printable(data).c_str());
 
+        owner.emulator.useBLETransport();
+
         // Feed bytes to emulator byte-by-byte
         for (size_t i = 0; i < data.length(); i++) {
             owner.emulator.processIncomingByte((uint8_t)data[i]);

@@ -1,4 +1,7 @@
 import can
+import time
+import math
+import random
 
 bus = can.interface.Bus(
     interface="slcan",
@@ -6,20 +9,31 @@ bus = can.interface.Bus(
     bitrate=500000
 )
 
-print("ECU simulator started")
+print("Realistic ECU simulator started")
+
+start_time = time.time()
+
+VIN = "JT2BG22K1V0123456"
+
+def build_msg(arbid, data):
+    return can.Message(
+        arbitration_id=arbid,
+        data=data,
+        is_extended_id=False
+    )
 
 while True:
+
     msg = bus.recv()
 
     if msg is None:
         continue
 
+    now = time.time() - start_time
+
     print(f"RX: {msg}")
 
-    # support both functional and physical addressing
-    if msg.arbitration_id == 0x7DF:
-        response_id = 0x7E8
-    elif msg.arbitration_id == 0x7E0:
+    if msg.arbitration_id in [0x7DF, 0x7E0]:
         response_id = 0x7E8
     else:
         continue
@@ -28,174 +42,215 @@ while True:
 
     resp = None
 
-    # =========================================================
+    # --------------------------------------------
+    # simulated engine behavior
+    # --------------------------------------------
+
+    # RPM oscillates between ~750-2500
+    rpm = int(
+        1100
+        + math.sin(now * 0.4) * 700
+        + random.randint(-40, 40)
+    )
+
+    rpm = max(720, rpm)
+
+    # speed loosely follows rpm
+    speed = int((rpm - 700) / 45)
+
+    speed += random.randint(-2, 2)
+
+    speed = max(0, min(speed, 130))
+
+    # coolant warms up over time
+    coolant_c = min(92, int(25 + now / 8))
+
+    # throttle %
+    throttle = int(
+        12 + abs(math.sin(now * 0.7)) * 35
+    )
+
+    # engine load %
+    engine_load = int(
+        18 + abs(math.sin(now * 0.3)) * 55
+    )
+
+    # --------------------------------------------
     # MODE 01 PID 00
-    # =========================================================
+    # --------------------------------------------
+
     if data[:3] == [0x02, 0x01, 0x00]:
 
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x06,
-                0x41,
-                0x00,
-                0xBE,
-                0x3F,
-                0xA8,
-                0x13,
-                0xAA
-            ],
-            is_extended_id=False
-        )
+        resp = build_msg(response_id, [
+            0x06,
+            0x41,
+            0x00,
+            0xBE,
+            0x3F,
+            0xA8,
+            0x13,
+            0x00
+        ])
 
-    # =========================================================
-    # MODE 01 PID 20
-    # =========================================================
-    elif data[:3] == [0x02, 0x01, 0x20]:
-
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x06,
-                0x41,
-                0x20,
-                0x00,
-                0x00,
-                0x00,
-                0x01,
-                0xAA
-            ],
-            is_extended_id=False
-        )
-
-    # =========================================================
+    # --------------------------------------------
     # RPM
-    # =========================================================
+    # --------------------------------------------
+
     elif data[:3] == [0x02, 0x01, 0x0C]:
 
-        rpm = 850
         raw = rpm * 4
 
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x04,
-                0x41,
-                0x0C,
-                (raw >> 8) & 0xFF,
-                raw & 0xFF,
-                0xAA,
-                0xAA,
-                0xAA
-            ],
-            is_extended_id=False
-        )
+        resp = build_msg(response_id, [
+            0x04,
+            0x41,
+            0x0C,
+            (raw >> 8) & 0xFF,
+            raw & 0xFF,
+            0x00,
+            0x00,
+            0x00
+        ])
 
-    # =========================================================
+    # --------------------------------------------
     # SPEED
-    # =========================================================
+    # --------------------------------------------
+
     elif data[:3] == [0x02, 0x01, 0x0D]:
 
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x03,
-                0x41,
-                0x0D,
-                40,
-                0xAA,
-                0xAA,
-                0xAA,
-                0xAA
-            ],
-            is_extended_id=False
-        )
+        resp = build_msg(response_id, [
+            0x03,
+            0x41,
+            0x0D,
+            speed,
+            0x00,
+            0x00,
+            0x00,
+            0x00
+        ])
 
-    # =========================================================
+    # --------------------------------------------
     # COOLANT TEMP
-    # =========================================================
+    # formula = A - 40
+    # --------------------------------------------
+
     elif data[:3] == [0x02, 0x01, 0x05]:
 
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x03,
-                0x41,
-                0x05,
-                130,
-                0xAA,
-                0xAA,
-                0xAA,
-                0xAA
-            ],
-            is_extended_id=False
-        )
+        resp = build_msg(response_id, [
+            0x03,
+            0x41,
+            0x05,
+            coolant_c + 40,
+            0x00,
+            0x00,
+            0x00,
+            0x00
+        ])
 
-    # =========================================================
-    # MODE 09 PID 00
-    # =========================================================
-    elif data[:3] == [0x02, 0x09, 0x00]:
+    # --------------------------------------------
+    # THROTTLE POSITION
+    # --------------------------------------------
 
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x06,
-                0x49,
-                0x00,
-                0x40,
-                0x00,
-                0x00,
-                0x00,
-                0xAA
-            ],
-            is_extended_id=False
-        )
+    elif data[:3] == [0x02, 0x01, 0x11]:
 
-    # =========================================================
-    # MODE 09 PID 02 VIN
-    # =========================================================
+        raw = int(throttle * 255 / 100)
+
+        resp = build_msg(response_id, [
+            0x03,
+            0x41,
+            0x11,
+            raw,
+            0x00,
+            0x00,
+            0x00,
+            0x00
+        ])
+
+    # --------------------------------------------
+    # ENGINE LOAD
+    # --------------------------------------------
+
+    elif data[:3] == [0x02, 0x01, 0x04]:
+
+        raw = int(engine_load * 255 / 100)
+
+        resp = build_msg(response_id, [
+            0x03,
+            0x41,
+            0x04,
+            raw,
+            0x00,
+            0x00,
+            0x00,
+            0x00
+        ])
+
+    # --------------------------------------------
+    # VIN (ISO-TP multi-frame)
+    # --------------------------------------------
+
     elif data[:3] == [0x02, 0x09, 0x02]:
 
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x03,
-                0x7F,
-                0x09,
-                0x11,
-                0xAA,
-                0xAA,
-                0xAA,
-                0xAA
+        vin_bytes = [ord(c) for c in VIN]
+
+        frames = [
+            [
+                0x10,
+                0x14,
+                0x49,
+                0x02,
+                0x01,
+                *vin_bytes[0:3]
             ],
-            is_extended_id=False
-        )
-
-    # =========================================================
-    # UDS NEGATIVE RESPONSE
-    # =========================================================
-    elif data[:4] == [0x03, 0x22, 0xF8, 0x02]:
-
-        # negative response: request out of range
-        resp = can.Message(
-            arbitration_id=response_id,
-            data=[
-                0x03,
-                0x7F,
+            [
+                0x21,
+                *vin_bytes[3:10]
+            ],
+            [
                 0x22,
-                0x31,
-                0xAA,
-                0xAA,
-                0xAA,
-                0xAA
-            ],
-            is_extended_id=False
-        )
+                *vin_bytes[10:17]
+            ]
+        ]
 
-    # =========================================================
-    # SEND IF MATCHED
-    # =========================================================
-    if resp is not None:
+        for f in frames:
+            while len(f) < 8:
+                f.append(0x00)
+
+            resp = build_msg(response_id, f)
+
+            time.sleep(0.01)
+            bus.send(resp)
+
+            print(f"TX: {resp}")
+
+        continue
+
+    # --------------------------------------------
+    # unsupported PID
+    # --------------------------------------------
+
+    elif len(data) >= 3 and data[1] == 0x01:
+
+        requested_pid = data[2]
+
+        resp = build_msg(response_id, [
+            0x03,
+            0x7F,
+            0x01,
+            0x12,
+            requested_pid,
+            0x00,
+            0x00,
+            0x00
+        ])
+
+    # --------------------------------------------
+    # send response
+    # --------------------------------------------
+
+    if resp:
+
+        # realistic ECU latency
+        time.sleep(random.uniform(0.005, 0.03))
 
         bus.send(resp)
 

@@ -41,7 +41,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Logger.h"
 #include "rgb_status.h"
 #include "console_io.h"
-#include "BLESerialBridge.h"
+#include "BleElm327Server.h"
 
 const char *resetReasonToStr(esp_reset_reason_t r)
 {
@@ -219,6 +219,7 @@ char otaFilename[100];
 uint8_t espChipRevision;
 
 ELM327Emu elmEmulator;
+BleElm327Server bleElm327Server(elmEmulator, "OBDLink CX", "OBD Solutions, LLC", "5.6.19");
 
 WiFiManager wifiManager;
 
@@ -533,7 +534,7 @@ void setup()
     delay(100); // just to make sure all the debug output is done before we start doing things that might mess with it
 
     consolePrintln("Starting BLE");
-    bleBridge.begin(deviceName);
+    bleElm327Server.begin();
 
     wifiManager.setup();
 
@@ -656,6 +657,4 @@ void loop()
     rgbStatusLoop();
 
     elmEmulator.loop();
-
-    bleBridge.loop();
 }

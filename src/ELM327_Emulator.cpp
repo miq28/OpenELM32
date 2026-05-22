@@ -37,9 +37,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "esp32_can.h"
 #include "can_manager.h"
 #include "debug.h"
-#include "BLESerialBridge.h"
-
-extern BLESerialBridge bleBridge;
+#include "BleElm327Server.h"
 
 static uint32_t elmTxnCounter = 0;
 
@@ -182,11 +180,12 @@ void ELM327Emu::sendTxBuffer()
             txBuffer.flushToEndpoint(endpoint);
         }
     }
-    else if (bleBridge.connected())
-    {
-        bleBridge.sendData(
-            txBuffer.getBufferedBytes(),
-            txBuffer.numAvailableBytes());
+    else {
+        BleElm327Server* bleServer = BleElm327Server::getInstance();
+        if (bleServer != nullptr) {
+            String response((const char*)txBuffer.getBufferedBytes(), txBuffer.numAvailableBytes());
+            bleServer->notifyResponse(response);
+        }
 
         txBuffer.clearBufferedBytes();
     }
@@ -228,17 +227,25 @@ String ELM327Emu::processELMCmd(char *cmd)
     // ==========================================
     // FIX: Intercept STN Custom Hardware Info Commands
     // ==========================================
-    if (!strcasecmp(cmd, "sti")) 
+    if (!strcasecmp(cmd, "sti"))
     {
-        if (bEcho) { retString.concat(cmd); retString.concat(lineEnding); }
+        if (bEcho)
+        {
+            retString.concat(cmd);
+            retString.concat(lineEnding);
+        }
         retString.concat("STN1110 v1.3a");
         retString.concat(lineEnding);
         retString.concat(">");
         return retString;
     }
-    if (!strcasecmp(cmd, "vti")) 
+    if (!strcasecmp(cmd, "vti"))
     {
-        if (bEcho) { retString.concat(cmd); retString.concat(lineEnding); }
+        if (bEcho)
+        {
+            retString.concat(cmd);
+            retString.concat(lineEnding);
+        }
         retString.concat("OBDLink MX v1.3a");
         retString.concat(lineEnding);
         retString.concat(">");
@@ -453,19 +460,31 @@ String ELM327Emu::processELMCmd(char *cmd)
         outFrame.data.uint8[5] = 0xAA;
         outFrame.data.uint8[6] = 0xAA;
         outFrame.data.uint8[7] = 0xAA;
+
         size_t cmdSize = strlen(cmd);
-        if (cmdSize == 4) // generic OBDII codes
+        bool isStandardPid = false;
+
+        // Handle standard PIDs (4 chars) or bounded requests (5 chars, e.g., "01051")
+        if (cmdSize == 4 || cmdSize == 5)
         {
-            uint32_t valu = strtol((char *)cmd, NULL, 16); // the pid format is always in hex
+            isStandardPid = true;
+            char tempCmd[5] = {0};
+            strncpy(tempCmd, cmd, 4); // Strip trailing response count character if present
+
+            uint32_t valu = strtol(tempCmd, NULL, 16); // the pid format is always in hex
             uint8_t pidnum = (uint8_t)(valu & 0xFF);
             uint8_t mode = (uint8_t)((valu >> 8) & 0xFF);
             outFrame.data.uint8[0] = 2;
             outFrame.data.uint8[1] = mode;
             outFrame.data.uint8[2] = pidnum;
         }
-        if (cmdSize == 6) // custom PIDs for specific vehicles
+        // Handle custom long PIDs (6 chars) or bounded variants (7 chars)
+        else if (cmdSize == 6 || cmdSize == 7)
         {
-            uint32_t valu = strtol((char *)cmd, NULL, 16); // the pid format is always in hex
+            char tempCmd[7] = {0};
+            strncpy(tempCmd, cmd, 6); // Strip trailing response count character if present
+
+            uint32_t valu = strtol(tempCmd, NULL, 16); // the pid format is always in hex
             uint16_t pidnum = (uint16_t)(valu & 0xFFFF);
             uint8_t mode = (uint8_t)((valu >> 16) & 0xFF);
             outFrame.data.uint8[0] = 3;
@@ -473,6 +492,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             outFrame.data.uint8[2] = pidnum >> 8;
             outFrame.data.uint8[3] = pidnum & 0xFF;
         }
+
         /* //only for debugging!
         canManager.setSendToConsole(true);
         canManager.displayFrame(outFrame, sendingBus);
@@ -525,7 +545,8 @@ String ELM327Emu::processELMCmd(char *cmd)
 
         pendingMode = outFrame.data.uint8[1];
 
-        if (cmdSize == 4)
+        // FIX: Match the logic parsing track variables based on isolated layout lengths
+        if (isStandardPid)
         {
             pendingPID = outFrame.data.uint8[2];
         }
@@ -539,6 +560,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         return "";
     }
 
+    retString.concat(lineEnding);
     retString.concat(lineEnding);
     retString.concat(">"); // prompt to show we're ready to receive again
 

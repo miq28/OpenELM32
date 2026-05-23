@@ -90,7 +90,9 @@ private:
     bool bEcho;               // should we echo back anything sent to us?
     bool bMonitorMode;        // should we output all frames?
     bool bDLC;                // output DLC?
+
     bool bSpaces;
+    bool bBatchedCommands;
     uint32_t ecuAddress;
     int tickCounter;
     int ibWritePtr;

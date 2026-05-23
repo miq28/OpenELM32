@@ -76,6 +76,7 @@ ELM327Emu::ELM327Emu()
     bMonitorMode = false;
     bDLC = false;
     bSpaces = true;
+    bBatchedCommands = false;
     sendingBus = 0;
     currentProtocol = 6;
 
@@ -253,14 +254,36 @@ void ELM327Emu::processCmd()
 
     DEBUG("[APP->ELM RX] %s\n", incomingBuffer);
 
-    String retString = processELMCmd(incomingBuffer);
+    char *cmd = incomingBuffer;
 
-    if (retString.length() > 0)
+    while (cmd && *cmd)
     {
-        DEBUG("[ELM->APP TX] %s\n", retString.c_str());
+        char *next = nullptr;
 
-        txBuffer.sendString(retString);
-        sendTxBuffer();
+        if (bBatchedCommands)
+        {
+            next = strchr(cmd, '|');
+
+            if (next)
+            {
+                *next = 0;
+                next++;
+            }
+        }
+
+        if (*cmd)
+        {
+            String retString = processELMCmd(cmd);
+
+            if (retString.length() > 0)
+            {
+                DEBUG("[ELM->APP TX] %s\n", retString.c_str());
+                txBuffer.sendString(retString);
+                sendTxBuffer();
+            }
+        }
+
+        cmd = next;
     }
 }
 
@@ -357,6 +380,19 @@ String ELM327Emu::processELMCmd(char *cmd)
         {
             retString.concat("OK");
         }
+        else if (!strncmp(cmd, "stbc", 4))
+        {
+            if (cmd[4] == '1')
+            {
+                bBatchedCommands = true;
+            }
+            else if (cmd[4] == '0')
+            {
+                bBatchedCommands = false;
+            }
+
+            retString.concat("OK");
+        }
         else if (!strncmp(cmd, "stp", 3))
         {
             currentProtocol = 6;
@@ -390,7 +426,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else
         {
-            Logger::debug("Unhandled ST command: %s", cmd);
+            DEBUG("Unhandled ST command: %s", cmd);
             retString.concat("OK");
         }
 
@@ -419,10 +455,28 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strncmp(cmd, "atsh", 4))
         {
-            size_t idSize = strlen(cmd + 4);
-            ecuAddress = Utility::parseHexString(cmd + 4, idSize);
-            Logger::debug("New ECU address: %x", ecuAddress);
-            retString.concat("OK");
+            char *idText = cmd + 4;
+
+            if (strlen(idText) == 6 &&
+                idText[0] == '0' &&
+                idText[1] == '0')
+            {
+                idText += 2;
+            }
+
+            size_t idSize = strlen(idText);
+
+            if (idSize == 3 || idSize == 4 || idSize == 8)
+            {
+                ecuAddress = Utility::parseHexString(idText, idSize);
+                DEBUG("New ECU address: %x", ecuAddress);
+                retString.concat("OK");
+            }
+            else
+            {
+                DEBUG("Invalid ATSH header: %s", cmd + 4);
+                retString.concat("?");
+            }
         }
         else if (!strncmp(cmd, "ate", 3))
         {
@@ -524,7 +578,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strncmp(cmd, "atma", 4))
         {
-            Logger::debug("ENTERING monitor mode");
+            DEBUG("ENTERING monitor mode");
             bMonitorMode = true;
             retString.concat("OK");
         }
@@ -584,7 +638,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else
         {
-            Logger::debug("Unhandled AT command: %s", cmd);
+            DEBUG("Unhandled AT command: %s", cmd);
             retString.concat("OK");
         }
 
@@ -966,7 +1020,7 @@ void ELM327Emu::processIncomingByte(uint8_t incoming)
 
     if (incoming > 20 && bMonitorMode)
     {
-        Logger::debug("Exiting monitor mode");
+        DEBUG("Exiting monitor mode");
         bMonitorMode = false;
     }
 

@@ -76,6 +76,16 @@ private:
     }
 };
 
+class BleElm327Server::DeviceInfoCallbacks : public NimBLECharacteristicCallbacks {
+public:
+    void onRead(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo) override {
+        String value = characteristic->getValue();
+        consolePrintf("[BLE] DeviceInfo read %s: %s\n",
+                      characteristic->getUUID().toString().c_str(),
+                      BleElm327Server::printable(value).c_str());
+    }
+};
+
 BleElm327Server::BleElm327Server(ELM327Emu& emulator,
                                  const char* deviceName,
                                  const char* manufacturer,
@@ -92,6 +102,7 @@ void BleElm327Server::begin() {
 
     serverCallbacks = new ServerCallbacks(*this);
     serialCallbacks = new SerialCallbacks(*this);
+    deviceInfoCallbacks = new DeviceInfoCallbacks();
 
     NimBLEDevice::init(deviceName);
     NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
@@ -105,7 +116,10 @@ void BleElm327Server::begin() {
     NimBLEService* deviceInfo = server->createService("180A");
     addDeviceInfoCharacteristic(deviceInfo, "2A29", manufacturer);
     addDeviceInfoCharacteristic(deviceInfo, "2A24", deviceName);
+    addDeviceInfoCharacteristic(deviceInfo, "2A25", "231012345678");
     addDeviceInfoCharacteristic(deviceInfo, "2A26", firmwareRevision);
+    addDeviceInfoCharacteristic(deviceInfo, "2A27", "r1.0.0");
+    addDeviceInfoCharacteristic(deviceInfo, "2A28", "2024.02.01");
 
     NimBLEService* obdlinkService = server->createService("0000FFF0-0000-1000-8000-00805F9B34FB");
     obdlinkNotifyChar = obdlinkService->createCharacteristic(
@@ -156,19 +170,43 @@ void BleElm327Server::begin() {
 void BleElm327Server::notifyResponse(const String& response) {
     lastResponse = response;
     
-    if (obdlinkNotifyChar != nullptr) {
-        obdlinkNotifyChar->setValue(response);
-        obdlinkNotifyChar->notify();
-        consolePrintf("[BLE] FFF1 notify: %zu bytes\n", response.length());
-    }
-
-    if (genericSerialChar != nullptr) {
-        genericSerialChar->setValue(response);
-        genericSerialChar->notify();
-        consolePrintf("[BLE] FFE1 notify: %zu bytes\n", response.length());
-    }
+    notifyChunked(obdlinkNotifyChar, response, "FFF1");
+    notifyChunked(genericSerialChar, response, "FFE1");
 
     consolePrintf("[ELM] Response: %s\n", printable(response).c_str());
+}
+
+void BleElm327Server::notifyChunked(NimBLECharacteristic* characteristic,
+                                    const String& response,
+                                    const char* label) {
+    if (characteristic == nullptr) {
+        return;
+    }
+
+    constexpr size_t maxChunkLen = 20; // ATT payload for default MTU 23.
+    size_t offset = 0;
+    size_t chunks = 0;
+
+    while (offset < response.length()) {
+        const size_t remaining = response.length() - offset;
+        const size_t chunkLen = remaining > maxChunkLen ? maxChunkLen : remaining;
+        String chunk = response.substring(offset, offset + chunkLen);
+
+        characteristic->setValue(chunk);
+        characteristic->notify();
+
+        offset += chunkLen;
+        chunks++;
+
+        if (offset < response.length()) {
+            delay(3);
+        }
+    }
+
+    consolePrintf("[BLE] %s notify: %zu bytes in %zu chunk(s)\n",
+                  label,
+                  response.length(),
+                  chunks);
 }
 
 String BleElm327Server::printable(String value) {
@@ -182,6 +220,7 @@ NimBLECharacteristic* BleElm327Server::addDeviceInfoCharacteristic(NimBLEService
                                                                    const char* value) {
     NimBLECharacteristic* characteristic = service->createCharacteristic(uuid, NIMBLE_PROPERTY::READ);
     characteristic->setValue(value);
+    characteristic->setCallbacks(deviceInfoCallbacks);
     return characteristic;
 }
 

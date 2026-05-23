@@ -226,7 +226,7 @@ char otaFilename[100];
 uint8_t espChipRevision;
 
 ELM327Emu elmEmulator;
-BleElm327Server bleElm327Server(elmEmulator, "OBDLink CX", "OBD Solutions, LLC", "5.6.19");
+BleElm327Server bleElm327Server(elmEmulator, "OBDLink CX", "OBD Solutions LLC", "STN2310 v5.6.19");
 
 WiFiManager wifiManager;
 

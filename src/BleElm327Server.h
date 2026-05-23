@@ -9,8 +9,8 @@ class BleElm327Server {
 public:
     BleElm327Server(ELM327Emu& emulator,
                     const char* deviceName = "OBDLink CX",
-                    const char* manufacturer = "OBD Solutions, LLC",
-                    const char* firmwareRevision = "5.6.19");
+                    const char* manufacturer = "OBD Solutions LLC",
+                    const char* firmwareRevision = "STN2310 v5.6.19");
 
     void begin();
     void notifyResponse(const String& response);
@@ -19,6 +19,7 @@ public:
 private:
     class ServerCallbacks;
     class SerialCallbacks;
+    class DeviceInfoCallbacks;
 
     ELM327Emu& emulator;
     const char* deviceName;
@@ -32,7 +33,9 @@ private:
 
     ServerCallbacks* serverCallbacks = nullptr;
     SerialCallbacks* serialCallbacks = nullptr;
+    DeviceInfoCallbacks* deviceInfoCallbacks = nullptr;
 
     static String printable(String value);
-    static NimBLECharacteristic* addDeviceInfoCharacteristic(NimBLEService* service, const char* uuid, const char* value);
+    NimBLECharacteristic* addDeviceInfoCharacteristic(NimBLEService* service, const char* uuid, const char* value);
+    static void notifyChunked(NimBLECharacteristic* characteristic, const String& response, const char* label);
 };

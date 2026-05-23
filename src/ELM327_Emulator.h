@@ -103,6 +103,7 @@ private:
     void processCmd();
     String processELMCmd(char *cmd);
     void sendTxBuffer();
+    void flushPendingReply();
 
     bool waitingForReply;
     uint32_t requestStartTime;

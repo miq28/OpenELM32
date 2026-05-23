@@ -180,21 +180,7 @@ void ELM327Emu::loop()
             }
             else if (!multiFrameActive && (now - lastReplyTime) > 8)
             {
-                waitingForReply = false;
-
-                //=== OBD Reply Path
-                DEBUG("[%lu ms][ELM->APP %lu TX] %s>\n",
-                      millis(),
-                      activeTxn,
-                      replyAccumulator.c_str());
-
-                DEBUG("====================================================\n\n");
-
-                txBuffer.sendString(replyAccumulator);
-
-                txBuffer.sendString(">");
-
-                sendTxBuffer();
+                flushPendingReply();
             }
         }
         // ---- no reply at all ----
@@ -210,6 +196,23 @@ void ELM327Emu::loop()
             }
         }
     }
+}
+
+void ELM327Emu::flushPendingReply()
+{
+    waitingForReply = false;
+
+    //=== OBD Reply Path
+    DEBUG("[%lu ms][ELM->APP %lu TX] %s>\n",
+          millis(),
+          activeTxn,
+          replyAccumulator.c_str());
+
+    DEBUG("====================================================\n\n");
+
+    txBuffer.sendString(replyAccumulator);
+    txBuffer.sendString(">");
+    sendTxBuffer();
 }
 
 void ELM327Emu::sendTxBuffer()
@@ -250,6 +253,11 @@ void ELM327Emu::processCmd()
     if (incomingBuffer[0] == 0)
     {
         return;
+    }
+
+    if (waitingForReply && gotReply && !multiFrameActive)
+    {
+        flushPendingReply();
     }
 
     DEBUG("[APP->ELM RX] %s\n", incomingBuffer);
@@ -302,7 +310,22 @@ String ELM327Emu::processELMCmd(char *cmd)
         return "";
     }
 
-    if (bEcho)
+    bool suppressEcho = false;
+    if (!strncmp(cmd, "st", 2))
+    {
+        suppressEcho =
+            !strcmp(cmd, "sti") ||
+            !strcmp(cmd, "stix") ||
+            !strcmp(cmd, "stdi") ||
+            !strcmp(cmd, "stdix") ||
+            !strcmp(cmd, "stmfr") ||
+            !strcmp(cmd, "stsn") ||
+            !strcmp(cmd, "stpr") ||
+            !strcmp(cmd, "stprs") ||
+            !strcmp(cmd, "stslcs");
+    }
+
+    if (bEcho && !suppressEcho)
     {
         retString.concat(cmd);
         retString.concat(lineEnding);
@@ -393,6 +416,14 @@ String ELM327Emu::processELMCmd(char *cmd)
 
             retString.concat("OK");
         }
+        else if (!strncmp(cmd, "stuil", 5))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stbtpm", 6))
+        {
+            retString.concat("OK");
+        }
         else if (!strncmp(cmd, "stp", 3))
         {
             currentProtocol = 6;
@@ -448,6 +479,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             bMonitorMode = false;
             bDLC = false;
             bSpaces = true;
+            bBatchedCommands = false;
             currentProtocol = 6;
             ecuAddress = 0x7DF;
 
@@ -571,6 +603,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             bMonitorMode = false;
             bDLC = false;
             bSpaces = true;
+            bBatchedCommands = false;
             currentProtocol = 6;
             ecuAddress = 0x7DF;
 

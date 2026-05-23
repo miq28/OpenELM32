@@ -2,6 +2,8 @@
 
 This project uses the ESP32 firmware as an ELM327-compatible adapter. ECU behavior should normally be supplied by a real ECU or by `ecu_sim-win-slcan.py` on the CAN side.
 
+See `ELM327_COMMANDS.md` for the ELM compatibility matrix and diagnostics roadmap.
+
 ## Setup
 
 1. Flash the ESP32 firmware.

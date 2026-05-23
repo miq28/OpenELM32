@@ -515,7 +515,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "ati"))
         {
-            retString.concat("ELM327 v1.4b");
+            retString.concat("OBDLink CX");
         }
         else if (!strncmp(cmd, "atat", 4))
         {

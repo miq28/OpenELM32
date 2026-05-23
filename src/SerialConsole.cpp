@@ -42,6 +42,35 @@
 
 extern void CANHandler();
 
+static void applyUsbSerialBaud(uint32_t baud)
+{
+    Serial.flush();
+    delay(50);
+    while (Serial.available() > 0)
+    {
+        Serial.read();
+    }
+    Serial.begin(baud);
+}
+
+static void applyObdRuntimeProfile()
+{
+    settings.runtimeProfile = RUNTIME_PROFILE_OBD;
+    settings.consoleCANOutput = false;
+    canManager.setSendToConsole(false);
+    debug_enabled = true;
+    debug_to_serial = false;
+    debug_to_rs485 = true;
+}
+
+static void applyDevRuntimeProfile()
+{
+    settings.runtimeProfile = RUNTIME_PROFILE_DEV;
+    debug_enabled = true;
+    debug_to_serial = false;
+    debug_to_rs485 = true;
+}
+
 SerialConsole::SerialConsole()
 {
     init();
@@ -103,6 +132,7 @@ void SerialConsole::printMenu()
     Logger::console("BTNAME=%s - Set advertised Bluetooth name", settings.btName);
     Logger::console("SENDBUS=%i - Set which CAN bus to send messages from ELM327 emulator", settings.sendingBus);
     Logger::console("ELM327SERIAL=%i - Enable ELM327 command mode on USB serial (0=Dis, 1=En)", settings.enableElmSerial);
+    Logger::console("APP=<preset> - Apply preset (OBD, SERIAL115200, SERIAL1000000, DEV)");
     consolePrintln();
 
     Logger::console("LAWICEL=%i - Set whether to accept LAWICEL commands (0 = Off, 1 = On)", settings.enableLawicel);
@@ -480,14 +510,7 @@ void SerialConsole::handleConfigCmd()
             Logger::console("Setting USB serial baud to %i", newValue);
             settings.serialBaud = (uint32_t)newValue;
             writeEEPROM = true;
-
-            Serial.flush();
-            delay(50);
-            while (Serial.available() > 0)
-            {
-                Serial.read();
-            }
-            Serial.begin(settings.serialBaud);
+            applyUsbSerialBaud(settings.serialBaud);
         }
         else
         {
@@ -566,27 +589,65 @@ void SerialConsole::handleConfigCmd()
 
         if (profile == String("OBD") || profile == String("1"))
         {
-            settings.runtimeProfile = RUNTIME_PROFILE_OBD;
-            settings.consoleCANOutput = false;
-            canManager.setSendToConsole(false);
-            debug_enabled = true;
-            debug_to_serial = false;
-            debug_to_rs485 = true;
+            applyObdRuntimeProfile();
             Logger::console("Runtime profile set to OBD");
             writeEEPROM = true;
         }
         else if (profile == String("DEV") || profile == String("0"))
         {
-            settings.runtimeProfile = RUNTIME_PROFILE_DEV;
-            debug_enabled = true;
-            debug_to_serial = false;
-            debug_to_rs485 = true;
+            applyDevRuntimeProfile();
             Logger::console("Runtime profile set to DEV");
             writeEEPROM = true;
         }
         else
         {
             Logger::console("Invalid profile! Use PROFILE=OBD or PROFILE=DEV");
+        }
+    }
+    else if (cmdString == String("APP"))
+    {
+        String app = String(newString);
+        app.toUpperCase();
+
+        if (app == String("OBD"))
+        {
+            applyObdRuntimeProfile();
+            Logger::console("App preset OBD: OBD quiet profile for app-facing transports, RS485 debug on");
+            writeEEPROM = true;
+        }
+        else if (app == String("SERIAL115200") || app == String("SERIAL") ||
+                 app == String("OBDAUTODOCTOR") || app == String("OBDAD") || app == String("AUTODOCTOR"))
+        {
+            settings.enableElmSerial = true;
+            settings.serialBaud = 115200;
+            applyObdRuntimeProfile();
+            Logger::console("App preset SERIAL115200: USB ELM327 at 115200, OBD quiet profile, RS485 debug on");
+            writeEEPROM = true;
+            applyUsbSerialBaud(settings.serialBaud);
+        }
+        else if (app == String("SERIAL1000000") || app == String("FASTSERIAL") || app == String("FAST"))
+        {
+            settings.enableElmSerial = true;
+            settings.serialBaud = 1000000;
+            applyObdRuntimeProfile();
+            Logger::console("App preset SERIAL1000000: USB ELM327 at 1000000, OBD quiet profile, RS485 debug on");
+            writeEEPROM = true;
+            applyUsbSerialBaud(settings.serialBaud);
+        }
+        else if (app == String("DEV"))
+        {
+            settings.enableElmSerial = false;
+            settings.serialBaud = 1000000;
+            settings.consoleCANOutput = true;
+            canManager.setSendToConsole(true);
+            applyDevRuntimeProfile();
+            Logger::console("App preset DEV: USB console at 1000000, CAN console on, RS485 debug on");
+            writeEEPROM = true;
+            applyUsbSerialBaud(settings.serialBaud);
+        }
+        else
+        {
+            Logger::console("Invalid app preset! Use APP=OBD, APP=SERIAL115200, APP=SERIAL1000000, or APP=DEV");
         }
     }
     else if (cmdString == String("DEBUGSER"))

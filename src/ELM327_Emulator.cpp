@@ -97,7 +97,6 @@ ELM327Emu::ELM327Emu()
     multiFrameReceivedLen = 0;
     multiFrameNextSeq = 1;
     multiFrameReplyId = 0;
-
 }
 
 void ELM327Emu::setWiFiClient(WiFiClient *client)
@@ -230,9 +229,10 @@ void ELM327Emu::sendTxBuffer()
     }
     else
     {
-        BleElm327Server* bleServer = BleElm327Server::getInstance();
-        if (bleServer != nullptr) {
-            String response((const char*)txBuffer.getBufferedBytes(), txBuffer.numAvailableBytes());
+        BleElm327Server *bleServer = BleElm327Server::getInstance();
+        if (bleServer != nullptr)
+        {
+            String response((const char *)txBuffer.getBufferedBytes(), txBuffer.numAvailableBytes());
             bleServer->notifyResponse(response);
         }
 
@@ -246,18 +246,18 @@ void ELM327Emu::sendTxBuffer()
  */
 void ELM327Emu::processCmd()
 {
-    if (strncmp(incomingBuffer, "at", 2) == 0)
+    if (incomingBuffer[0] == 0)
     {
-        DEBUG("[APP->ELM RX] %s\n",
-              incomingBuffer);
+        return;
     }
+
+    DEBUG("[APP->ELM RX] %s\n", incomingBuffer);
 
     String retString = processELMCmd(incomingBuffer);
 
     if (retString.length() > 0)
     {
-        DEBUG("[ELM->APP TX] %s\n",
-              retString.c_str());
+        DEBUG("[ELM->APP TX] %s\n", retString.c_str());
 
         txBuffer.sendString(retString);
         sendTxBuffer();
@@ -267,40 +267,17 @@ void ELM327Emu::processCmd()
 String ELM327Emu::processELMCmd(char *cmd)
 {
     String retString = String();
+
     String lineEnding;
     if (bLineFeed)
         lineEnding = String("\r\n");
     else
         lineEnding = String("\r");
 
-    // ==========================================
-    // FIX: Intercept STN Custom Hardware Info Commands
-    // ==========================================
-    if (!strcasecmp(cmd, "sti"))
+    if (cmd == nullptr || cmd[0] == 0)
     {
-        if (bEcho)
-        {
-            retString.concat(cmd);
-            retString.concat(lineEnding);
-        }
-        retString.concat("STN1110 v1.3a");
-        retString.concat(lineEnding);
-        retString.concat(">");
-        return retString;
+        return "";
     }
-    if (!strcasecmp(cmd, "vti"))
-    {
-        if (bEcho)
-        {
-            retString.concat(cmd);
-            retString.concat(lineEnding);
-        }
-        retString.concat("OBDLink MX v1.3a");
-        retString.concat(lineEnding);
-        retString.concat(">");
-        return retString;
-    }
-    // ==========================================
 
     if (bEcho)
     {
@@ -308,11 +285,127 @@ String ELM327Emu::processELMCmd(char *cmd)
         retString.concat(lineEnding);
     }
 
+    // ============================================================
+    // OBDLink / STN command support
+    // ============================================================
+    if (!strncmp(cmd, "st", 2))
+    {
+        if (!strcmp(cmd, "sti"))
+        {
+            retString.concat("STN2310 v5.6.19");
+        }
+        else if (!strcmp(cmd, "stix"))
+        {
+            retString.concat("STN2310 v5.6.19 [2024.02.01]");
+        }
+        else if (!strcmp(cmd, "stdi"))
+        {
+            retString.concat("OBDLink CX r1.0.0");
+        }
+        else if (!strcmp(cmd, "stmfr"))
+        {
+            retString.concat("OBD Solutions LLC");
+        }
+        else if (!strcmp(cmd, "stsn"))
+        {
+            retString.concat("231012345678");
+        }
+        else if (!strcmp(cmd, "stdix"))
+        {
+            retString.concat("Device: OBDLink CX r1.0.0");
+            retString.concat(lineEnding);
+            retString.concat("Firmware: STN2310 v5.6.19 [2024.02.01]");
+            retString.concat(lineEnding);
+            retString.concat("Mfr: OBD Solutions LLC");
+            retString.concat(lineEnding);
+            retString.concat("Serial #: 231012345678");
+            retString.concat(lineEnding);
+            retString.concat("BL Ver: 4.3");
+            retString.concat(lineEnding);
+            retString.concat("BT Dev Name: OBDLink CX");
+        }
+        else if (!strcmp(cmd, "stprs"))
+        {
+            retString.concat("ISO 15765-4 (CAN 11/500)");
+        }
+        else if (!strcmp(cmd, "stpr"))
+        {
+            sprintf(buffer, "%X", currentProtocol);
+            retString.concat(buffer);
+        }
+        else if (!strncmp(cmd, "stpbr", 5))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stpto", 5))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stptot", 6))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stptrq", 6))
+        {
+            retString.concat("OK");
+        }
+        else if (!strcmp(cmd, "stpc"))
+        {
+            retString.concat("OK");
+        }
+        else if (!strcmp(cmd, "stpo"))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stp", 3))
+        {
+            currentProtocol = 6;
+            ecuAddress = 0x7E0;
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stcaf", 5))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stcsegr", 7))
+        {
+            retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stcsegt", 7))
+        {
+            retString.concat("OK");
+        }
+        else if (!strcmp(cmd, "stslcs"))
+        {
+            retString.concat("UART_SLEEP:OFF");
+            retString.concat(lineEnding);
+            retString.concat("OBD_SLEEP:OFF");
+            retString.concat(lineEnding);
+            retString.concat("VOLT_SLEEP:OFF");
+        }
+        else if (!strncmp(cmd, "stma", 4))
+        {
+            bMonitorMode = true;
+            retString.concat("OK");
+        }
+        else
+        {
+            Logger::debug("Unhandled ST command: %s", cmd);
+            retString.concat("OK");
+        }
+
+        retString.concat(lineEnding);
+        retString.concat(">");
+        return retString;
+    }
+
+    // ============================================================
+    // AT command support
+    // ============================================================
     if (!strncmp(cmd, "at", 2))
     {
-
         if (!strcmp(cmd, "atz"))
-        { // reset hardware
+        {
             bEcho = false;
             bHeader = false;
             bLineFeed = true;
@@ -322,10 +415,9 @@ String ELM327Emu::processELMCmd(char *cmd)
             currentProtocol = 6;
             ecuAddress = 0x7DF;
 
-            retString.concat(lineEnding);
-            retString.concat("ELM327 v1.3a");
+            retString.concat("ELM327 v1.4b");
         }
-        else if (!strncmp(cmd, "atsh", 4)) // set header address (address we send queries to)
+        else if (!strncmp(cmd, "atsh", 4))
         {
             size_t idSize = strlen(cmd + 4);
             ecuAddress = Utility::parseHexString(cmd + 4, idSize);
@@ -333,71 +425,61 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "ate", 3))
-        { // turn echo on/off
+        {
             if (cmd[3] == '1')
                 bEcho = true;
             if (cmd[3] == '0')
                 bEcho = false;
+
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "ath", 3))
-        { // turn headers on/off
+        {
             if (cmd[3] == '1')
                 bHeader = true;
             else
                 bHeader = false;
+
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atl", 3))
-        { // turn linefeeds on/off
+        {
             if (cmd[3] == '1')
                 bLineFeed = true;
             else
                 bLineFeed = false;
+
             retString.concat("OK");
         }
         else if (!strcmp(cmd, "at@1"))
-        { // send device description
-            retString.concat("OBDLink MX");
+        {
+            retString.concat("OBDLink CX");
         }
         else if (!strcmp(cmd, "at@2"))
-        {                                 // device identifier
-            retString.concat(deviceName); // WEACT_CAN4854
+        {
+            retString.concat(deviceName);
         }
         else if (!strcmp(cmd, "ati"))
-        { // send chip ID
-            retString.concat("ELM327 v1.5");
+        {
+            retString.concat("ELM327 v1.4b");
         }
         else if (!strncmp(cmd, "atat", 4))
-        { // set adaptive timing
-            // don't intend to support adaptive timing at all
+        {
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "attp", 4))
         {
-            // emulate OBDLink behavior:
-            // after protocol selection use physical ECU addressing
-
             ecuAddress = 0x7E0;
-
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atsp", 4))
         {
-            uint8_t requested =
-                strtol(cmd + 4, NULL, 16);
+            uint8_t requested = strtol(cmd + 4, NULL, 16);
 
             switch (requested)
             {
             case 0:
-                // automatic protocol
-                currentProtocol = 6;
-                ecuAddress = 0x7E0;
-                retString.concat("OK");
-                break;
-
             case 6:
-                // ISO 15765-4 CAN 11/500
                 currentProtocol = 6;
                 ecuAddress = 0x7E0;
                 retString.concat("OK");
@@ -409,13 +491,12 @@ String ELM327Emu::processELMCmd(char *cmd)
             }
         }
         else if (!strcmp(cmd, "atdp"))
-        { // show description of protocol
+        {
             retString.concat("ISO 15765-4 (CAN 11/500)");
         }
         else if (!strcmp(cmd, "atdpn"))
         {
             sprintf(buffer, "A%X", currentProtocol);
-
             retString.concat(buffer);
         }
         else if (!strncmp(cmd, "atd0", 4))
@@ -429,7 +510,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat("OK");
         }
         else if (!strcmp(cmd, "atd"))
-        { // set to defaults
+        {
             bEcho = false;
             bHeader = false;
             bLineFeed = true;
@@ -441,36 +522,30 @@ String ELM327Emu::processELMCmd(char *cmd)
 
             retString.concat("OK");
         }
-        else if (!strncmp(cmd, "atma", 4)) // monitor all mode
+        else if (!strncmp(cmd, "atma", 4))
         {
             Logger::debug("ENTERING monitor mode");
             bMonitorMode = true;
+            retString.concat("OK");
         }
         else if (!strcmp(cmd, "ats0") ||
                  !strcmp(cmd, "ats1"))
         {
             if (cmd[3] == '0')
-            {
                 bSpaces = false;
-            }
             else
-            {
                 bSpaces = true;
-            }
 
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "atm", 3))
-        { // turn memory on/off
+        {
             retString.concat("OK");
         }
         else if (!strcmp(cmd, "atrv"))
-        { // show 12v rail voltage
-            // TODO: the system should actually have this value so it wouldn't hurt to
-            // look it up and report the real value.
+        {
             retString.concat("14.2V");
         }
-        //==========
         else if (!strncmp(cmd, "atcaf", 5))
         {
             retString.concat("OK");
@@ -507,138 +582,128 @@ String ELM327Emu::processELMCmd(char *cmd)
         {
             retString.concat("OK");
         }
-        //===================
         else
-        { // by default respond to anything not specifically handled by just saying OK and pretending.
+        {
             Logger::debug("Unhandled AT command: %s", cmd);
             retString.concat("OK");
         }
+
+        retString.concat(lineEnding);
+        retString.concat(">");
+        return retString;
     }
-    else
-    { // if no AT then assume it is a PID request. This takes the form of four bytes which form the alpha hex digit encoding for two bytes
-        // there should be four or six characters here forming the ascii representation of the PID request. Easiest for now is to turn the ascii into
-        // a 16 bit number and mask off to get the bytes
-        size_t cmdSize = strlen(cmd);
 
-        if (cmdSize == 0)
-        {
-            return "";
-        }
+    // ============================================================
+    // OBD PID request
+    // ============================================================
+    size_t cmdSize = strlen(cmd);
 
-        if (!isHexDigitString(cmd) ||
-            !(cmdSize == 2 || cmdSize == 3 || cmdSize == 4 ||
-              cmdSize == 5 || cmdSize == 6 || cmdSize == 7))
-        {
-            retString.concat("?");
-            retString.concat(lineEnding);
-            retString.concat(">");
-            return retString;
-        }
-
-        CAN_FRAME outFrame;
-        outFrame.id = ecuAddress;
-        outFrame.extended = false;
-        outFrame.length = 8;
-        outFrame.rtr = 0;
-        outFrame.data.uint8[3] = 0xAA;
-        outFrame.data.uint8[4] = 0xAA;
-        outFrame.data.uint8[5] = 0xAA;
-        outFrame.data.uint8[6] = 0xAA;
-        outFrame.data.uint8[7] = 0xAA;
-
-        bool isStandardPid = false;
-
-        // Handle standard PIDs (4 chars) or bounded requests (5 chars, e.g., "01051")
-        if (cmdSize == 4 || cmdSize == 5)
-        {
-            isStandardPid = true;
-            char tempCmd[5] = {0};
-            strncpy(tempCmd, cmd, 4); // Strip trailing response count character if present
-
-            uint32_t valu = strtol(tempCmd, NULL, 16); // the pid format is always in hex
-            uint8_t pidnum = (uint8_t)(valu & 0xFF);
-            uint8_t mode = (uint8_t)((valu >> 8) & 0xFF);
-            outFrame.data.uint8[0] = 2;
-            outFrame.data.uint8[1] = mode;
-            outFrame.data.uint8[2] = pidnum;
-        }
-        // Handle custom long PIDs (6 chars) or bounded variants (7 chars)
-        else if (cmdSize == 6 || cmdSize == 7)
-        {
-            char tempCmd[7] = {0};
-            strncpy(tempCmd, cmd, 6); // Strip trailing response count character if present
-
-            uint32_t valu = strtol(tempCmd, NULL, 16); // the pid format is always in hex
-            uint16_t pidnum = (uint16_t)(valu & 0xFFFF);
-            uint8_t mode = (uint8_t)((valu >> 16) & 0xFF);
-            outFrame.data.uint8[0] = 3;
-            outFrame.data.uint8[1] = mode;
-            outFrame.data.uint8[2] = pidnum >> 8;
-            outFrame.data.uint8[3] = pidnum & 0xFF;
-        }
-
-        /* //only for debugging!
-        canManager.setSendToConsole(true);
-        canManager.displayFrame(outFrame, sendingBus);
-        canManager.setSendToConsole(false);
-        */
-        // === CAN TX debug
-        uint32_t txn = ++elmTxnCounter;
-
-        activeTxn = txn;
-
-        DEBUG("\n");
-        DEBUG("====================================================\n");
-        DEBUG("[%lu ms][APP->ELM %lu] CMD:%s\n", millis(), txn, cmd);
-        DEBUG("[%lu ms][ELM->CAN %lu TX] id:%03X len:%u data:",
-              millis(),
-              txn,
-              outFrame.id,
-              outFrame.length);
-
-        for (int i = 0; i < outFrame.length; i++)
-        {
-            DEBUG(" %02X", outFrame.data.uint8[i]);
-        }
-
-        DEBUG("\n");
-        DEBUG("----------------------------------------------------\n");
-
-        canManager.sendFrame(canBuses[sendingBus], outFrame);
-
-        gotReply = false;
-        replyAccumulator = "";
-        multiFrameActive = false;
-        multiFrameExpectedLen = 0;
-        multiFrameReceivedLen = 0;
-        multiFrameNextSeq = 1;
-        multiFrameReplyId = 0;
-
-        waitingForReply = true;
-        requestStartTime = millis();
-
-        pendingMode = outFrame.data.uint8[1];
-
-        // FIX: Match the logic parsing track variables based on isolated layout lengths
-        if (isStandardPid)
-        {
-            pendingPID = outFrame.data.uint8[2];
-        }
-        else
-        {
-            pendingPID =
-                ((uint16_t)outFrame.data.uint8[2] << 8) |
-                outFrame.data.uint8[3];
-        }
-
+    if (cmdSize == 0)
+    {
         return "";
     }
 
-    retString.concat(lineEnding);
-    retString.concat(lineEnding);
-    retString.concat(">"); // prompt to show we're ready to receive again
+    if (!isHexDigitString(cmd) ||
+        !(cmdSize == 2 || cmdSize == 3 || cmdSize == 4 ||
+          cmdSize == 5 || cmdSize == 6 || cmdSize == 7))
+    {
+        retString.concat("?");
+        retString.concat(lineEnding);
+        retString.concat(">");
+        return retString;
+    }
 
-    return retString;
+    CAN_FRAME outFrame;
+    outFrame.id = ecuAddress;
+    outFrame.extended = false;
+    outFrame.length = 8;
+    outFrame.rtr = 0;
+    outFrame.data.uint8[3] = 0xAA;
+    outFrame.data.uint8[4] = 0xAA;
+    outFrame.data.uint8[5] = 0xAA;
+    outFrame.data.uint8[6] = 0xAA;
+    outFrame.data.uint8[7] = 0xAA;
+
+    bool isStandardPid = false;
+
+    if (cmdSize == 4 || cmdSize == 5)
+    {
+        isStandardPid = true;
+
+        char tempCmd[5] = {0};
+        strncpy(tempCmd, cmd, 4);
+
+        uint32_t valu = strtol(tempCmd, NULL, 16);
+        uint8_t pidnum = (uint8_t)(valu & 0xFF);
+        uint8_t mode = (uint8_t)((valu >> 8) & 0xFF);
+
+        outFrame.data.uint8[0] = 2;
+        outFrame.data.uint8[1] = mode;
+        outFrame.data.uint8[2] = pidnum;
+    }
+    else if (cmdSize == 6 || cmdSize == 7)
+    {
+        char tempCmd[7] = {0};
+        strncpy(tempCmd, cmd, 6);
+
+        uint32_t valu = strtol(tempCmd, NULL, 16);
+        uint16_t pidnum = (uint16_t)(valu & 0xFFFF);
+        uint8_t mode = (uint8_t)((valu >> 16) & 0xFF);
+
+        outFrame.data.uint8[0] = 3;
+        outFrame.data.uint8[1] = mode;
+        outFrame.data.uint8[2] = pidnum >> 8;
+        outFrame.data.uint8[3] = pidnum & 0xFF;
+    }
+
+    uint32_t txn = ++elmTxnCounter;
+
+    activeTxn = txn;
+
+    DEBUG("\n");
+    DEBUG("====================================================\n");
+    DEBUG("[%lu ms][APP->ELM %lu] CMD:%s\n", millis(), txn, cmd);
+    DEBUG("[%lu ms][ELM->CAN %lu TX] id:%03X len:%u data:",
+          millis(),
+          txn,
+          outFrame.id,
+          outFrame.length);
+
+    for (int i = 0; i < outFrame.length; i++)
+    {
+        DEBUG(" %02X", outFrame.data.uint8[i]);
+    }
+
+    DEBUG("\n");
+    DEBUG("----------------------------------------------------\n");
+
+    canManager.sendFrame(canBuses[sendingBus], outFrame);
+
+    gotReply = false;
+    replyAccumulator = "";
+    multiFrameActive = false;
+    multiFrameExpectedLen = 0;
+    multiFrameReceivedLen = 0;
+    multiFrameNextSeq = 1;
+    multiFrameReplyId = 0;
+
+    waitingForReply = true;
+    requestStartTime = millis();
+
+    pendingMode = outFrame.data.uint8[1];
+
+    if (isStandardPid)
+    {
+        pendingPID = outFrame.data.uint8[2];
+    }
+    else
+    {
+        pendingPID =
+            ((uint16_t)outFrame.data.uint8[2] << 8) |
+            outFrame.data.uint8[3];
+    }
+
+    return "";
 }
 
 void ELM327Emu::processCANReply(CAN_FRAME &frame)
@@ -883,31 +948,32 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     }
 }
 
-void ELM327Emu::processIncomingByte(
-    uint8_t incoming)
+void ELM327Emu::processIncomingByte(uint8_t incoming)
 {
-    if (incoming == 13 || ibWritePtr > 126)
+    if (incoming == 13 || incoming == 10 || ibWritePtr > 126)
     {
-        incomingBuffer[ibWritePtr] = 0;
+        if (ibWritePtr == 0)
+        {
+            return;
+        }
 
+        incomingBuffer[ibWritePtr] = 0;
         ibWritePtr = 0;
 
         processCmd();
+        return;
     }
-    else
+
+    if (incoming > 20 && bMonitorMode)
     {
-        if (incoming > 20 && bMonitorMode)
-        {
-            Logger::debug("Exiting monitor mode");
-
-            bMonitorMode = false;
-        }
-
-        if (incoming != 10 &&
-            incoming != ' ')
-        {
-            incomingBuffer[ibWritePtr++] =
-                (char)tolower(incoming);
-        }
+        Logger::debug("Exiting monitor mode");
+        bMonitorMode = false;
     }
+
+    if (incoming == ' ' || incoming == '\t')
+    {
+        return;
+    }
+
+    incomingBuffer[ibWritePtr++] = (char)tolower((unsigned char)incoming);
 }

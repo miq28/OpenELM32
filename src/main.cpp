@@ -93,6 +93,8 @@ void printPrefs()
     consolePrintf("binarycomm=%d\n", prefs.getBool("binarycomm", false));
     consolePrintf("loglevel=%u\n", prefs.getUChar("loglevel", 0));
     consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
+    consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", false));
+    consolePrintf("consoleCAN=%d\n", prefs.getBool("consoleCAN", true));
     consolePrintf("sendingBus=%d\n", prefs.getInt("sendingBus", 0));
     consolePrintf("btname=%s\n", prefs.getString("btname", "").c_str());
     consolePrintf("dbg_en=%d\n", prefs.getBool("dbg_en", false));
@@ -340,6 +342,8 @@ void loadSettings()
     settings.wifiMode = prefs.getUChar("wifiMode", 2); // Wifi defaults to creating an AP
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
     settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
+    settings.enableElmSerial = prefs.getBool("elmSerial", false);
+    settings.consoleCANOutput = prefs.getBool("consoleCAN", true);
     settings.sendingBus = prefs.getInt("sendingBus", 0);
 
     if (prefs.getString("btname", settings.btName, 32) == 0)
@@ -539,6 +543,7 @@ void setup()
     wifiManager.setup();
 
     canManager.setup();
+    canManager.setSendToConsole(settings.enableElmSerial ? false : settings.consoleCANOutput);
 
     SysSettings.lawicelMode = false;
     SysSettings.lawicelAutoPoll = false;
@@ -580,6 +585,54 @@ void sendMarkTriggered(int which)
     frame.length = 0;
     frame.rtr = 0;
     canManager.displayFrame(frame, 0);
+}
+
+static void disableElmSerialMode()
+{
+    settings.enableElmSerial = false;
+    canManager.setSendToConsole(settings.consoleCANOutput);
+
+    prefs.begin(PREF_NAME, false);
+    prefs.putBool("elmSerial", false);
+    prefs.putBool("consoleCAN", settings.consoleCANOutput);
+    prefs.end();
+
+    Serial.print("\r\nOK USB serial console mode\r\n");
+}
+
+static void processElmSerialByte(uint8_t inByte)
+{
+    static char controlBuffer[128];
+    static uint8_t controlLength = 0;
+
+    if (inByte == '\n')
+    {
+        return;
+    }
+
+    if (inByte == '\r' || controlLength >= (sizeof(controlBuffer) - 1))
+    {
+        controlBuffer[controlLength] = 0;
+
+        if (strcasecmp(controlBuffer, "ELM327SERIAL=0") == 0)
+        {
+            controlLength = 0;
+            disableElmSerialMode();
+            return;
+        }
+
+        elmEmulator.useSerialTransport();
+        for (uint8_t i = 0; i < controlLength; i++)
+        {
+            elmEmulator.processIncomingByte((uint8_t)controlBuffer[i]);
+        }
+        elmEmulator.processIncomingByte('\r');
+
+        controlLength = 0;
+        return;
+    }
+
+    controlBuffer[controlLength++] = (char)inByte;
 }
 
 /*
@@ -639,7 +692,14 @@ void loop()
 
         in_byte = Serial.read();
 
-        gvretUSB.processIncomingByte(in_byte);
+        if (settings.enableElmSerial)
+        {
+            processElmSerialByte(in_byte);
+        }
+        else
+        {
+            gvretUSB.processIncomingByte(in_byte);
+        }
     }
 
     // ===== RS485 INPUT =====

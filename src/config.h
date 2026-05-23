@@ -177,6 +177,8 @@ struct EEPROMSettings
     bool enableLawicel;
 
     bool enableVirtualOBD;
+    bool enableElmSerial;
+    bool consoleCANOutput;
 
     // if we're using WiFi then output to serial is disabled (it's far too slow to keep up)
     uint8_t wifiMode; // 0 = don't use wifi, 1 = connect to an AP, 2 = Create an AP

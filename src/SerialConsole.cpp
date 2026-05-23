@@ -96,10 +96,12 @@ void SerialConsole::printMenu()
     // consolePrintln();
 
     Logger::console("BINSERIAL=%i - Enable/Disable Binary Sending of CANBus Frames to Serial (0=Dis, 1=En)", settings.useBinarySerialComm);
+    Logger::console("CONSOLECAN=%i - Enable/Disable CAN frame output to USB serial (0=Dis, 1=En)", settings.consoleCANOutput);
     consolePrintln();
 
     Logger::console("BTNAME=%s - Set advertised Bluetooth name", settings.btName);
     Logger::console("SENDBUS=%i - Set which CAN bus to send messages from ELM327 emulator", settings.sendingBus);
+    Logger::console("ELM327SERIAL=%i - Enable ELM327 command mode on USB serial (0=Dis, 1=En)", settings.enableElmSerial);
     consolePrintln();
 
     Logger::console("LAWICEL=%i - Set whether to accept LAWICEL commands (0 = Off, 1 = On)", settings.enableLawicel);
@@ -475,7 +477,32 @@ void SerialConsole::handleConfigCmd()
         if (newValue > 1)
             newValue = 1;
         Logger::console("Setting Console output of CAN to %i", newValue);
+        settings.consoleCANOutput = (newValue != 0);
         canManager.setSendToConsole(newValue);
+        writeEEPROM = true;
+    }
+    else if (cmdString == String("ELM327SERIAL"))
+    {
+        if (newValue < 0)
+            newValue = 0;
+        if (newValue > 1)
+            newValue = 1;
+
+        settings.enableElmSerial = (newValue != 0);
+        if (settings.enableElmSerial)
+        {
+            settings.consoleCANOutput = false;
+            canManager.setSendToConsole(false);
+            debug_to_serial = false;
+        }
+        else
+        {
+            canManager.setSendToConsole(settings.consoleCANOutput);
+        }
+
+        Logger::console("USB serial ELM327 mode %s",
+                        settings.enableElmSerial ? "ENABLED" : "DISABLED");
+
         writeEEPROM = true;
     }
     else if (cmdString == String("SENDBUS"))
@@ -647,6 +674,8 @@ void SerialConsole::handleConfigCmd()
         prefs.putBool("binarycomm", settings.useBinarySerialComm);
         prefs.putInt("sendingBus", settings.sendingBus);
         prefs.putBool("enableLawicel", settings.enableLawicel);
+        prefs.putBool("elmSerial", settings.enableElmSerial);
+        prefs.putBool("consoleCAN", settings.consoleCANOutput);
 
         prefs.putBool("dbg_en", debug_enabled);
         prefs.putBool("dbg_ser", debug_to_serial);

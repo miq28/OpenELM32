@@ -85,6 +85,11 @@ void ELM327Emu::useBLETransport()
     activeTransport = TRANSPORT_BLE;
 }
 
+void ELM327Emu::useSerialTransport()
+{
+    activeTransport = TRANSPORT_SERIAL;
+}
+
 bool ELM327Emu::getMonitorMode()
 {
     return bMonitorMode;
@@ -182,6 +187,12 @@ void ELM327Emu::sendTxBuffer()
         mClient->connected())
     {
         TransportEndpoint endpoint(mClient);
+
+        txBuffer.flushToEndpoint(endpoint);
+    }
+    else if (activeTransport == TRANSPORT_SERIAL)
+    {
+        TransportEndpoint endpoint(&Serial);
 
         txBuffer.flushToEndpoint(endpoint);
     }

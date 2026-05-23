@@ -64,6 +64,7 @@ public:
     void loop();
     void setWiFiClient(WiFiClient *client);
     void useBLETransport();
+    void useSerialTransport();
     void sendCmd(String cmd);
     void processCANReply(CAN_FRAME &frame);
     bool getMonitorMode();
@@ -75,7 +76,8 @@ private:
     enum ActiveTransport
     {
         TRANSPORT_WIFI,
-        TRANSPORT_BLE
+        TRANSPORT_BLE,
+        TRANSPORT_SERIAL
     };
 
     WiFiClient *mClient;

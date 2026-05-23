@@ -327,6 +327,15 @@ python elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin --inval
 python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
 
 
+
+Usage:
+python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid
+
+Optional baud:
+python run_elm327_tests.py --serial COM5 --serial-baud 115200 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid
+python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid
+
+
 Best Next Improvements
 
 Clean ELM327 protocol compatibility

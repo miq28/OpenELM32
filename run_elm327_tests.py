@@ -32,6 +32,7 @@ def main(argv):
     parser.add_argument("--vin", action="store_true")
     parser.add_argument("--invalid", action="store_true")
     parser.add_argument("--formatting", action="store_true")
+    parser.add_argument("--identity", action="store_true")
     parser.add_argument("--timeout", type=float, default=1.5)
 
     args = parser.parse_args(argv)
@@ -45,6 +46,8 @@ def main(argv):
         flags.append("--invalid")
     if args.formatting:
         flags.append("--formatting")
+    if args.identity:
+        flags.append("--identity")
 
     # Serial first: opening USB serial can reset the ESP32 and produce boot noise.
     if args.serial:

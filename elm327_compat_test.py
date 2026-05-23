@@ -22,7 +22,7 @@ OBDLINK_NOTIFY_UUID = "0000fff1-0000-1000-8000-00805f9b34fb"
 
 DEFAULT_SEQUENCE = [
     ("ATZ", [r"ELM327"]),
-    ("ATI", [r"ELM327"]),
+    ("ATI", [r"ELM327|OBDLINK"]),
     ("AT@1", [r"OBDLink|ELM327|ESP32|WEACT"]),
     ("ATE0", [r"OK"]),
     ("ATL0", [r"OK"]),
@@ -64,6 +64,24 @@ IDENTITY_SEQUENCE = [
     ("AT@2", [r"WEACT|ESP32|CAN|OBD"]),
     ("ATRV", [r"\d+\.\d+V"]),
     ("ATIGN", [r"OK"]),
+]
+
+DTC_SEQUENCE = [
+    ("ATH0", [r"OK"]),
+    ("ATS0", [r"OK"]),
+    ("ATSH7DF", [r"OK"]),
+    ("03", [r"4301230456|NO DATA"]),
+    ("07", [r"470300|NO DATA"]),
+    ("0A", [r"4A0420|NO DATA"]),
+    ("ATSH7E0", [r"OK"]),
+]
+
+MULTI_ECU_SEQUENCE = [
+    ("ATH1", [r"OK"]),
+    ("ATSH7DF", [r"OK"]),
+    ("0100", [r"7E806410098198011.*7E906410098180001|7E906410098180001.*7E806410098198011"]),
+    ("ATSH7E0", [r"OK"]),
+    ("ATH0", [r"OK"]),
 ]
 
 
@@ -202,7 +220,16 @@ def normalize(raw):
     return re.sub(r"\s+", "", text).upper()
 
 
-def run_sequence(conn, timeout, include_vin=False, include_invalid=False, include_formatting=False, include_identity=False):
+def run_sequence(
+    conn,
+    timeout,
+    include_vin=False,
+    include_invalid=False,
+    include_formatting=False,
+    include_identity=False,
+    include_dtc=False,
+    include_multi_ecu=False,
+):
     failures = 0
     sequence = list(DEFAULT_SEQUENCE)
 
@@ -217,6 +244,12 @@ def run_sequence(conn, timeout, include_vin=False, include_invalid=False, includ
 
     if include_identity:
         sequence.extend(IDENTITY_SEQUENCE)
+
+    if include_dtc:
+        sequence.extend(DTC_SEQUENCE)
+
+    if include_multi_ecu:
+        sequence.extend(MULTI_ECU_SEQUENCE)
 
     for command, patterns in sequence:
         conn.write(command.encode("ascii") + b"\r")
@@ -236,7 +269,16 @@ def run_sequence(conn, timeout, include_vin=False, include_invalid=False, includ
     return failures
 
 
-async def run_ble_sequence(conn, timeout, include_vin=False, include_invalid=False, include_formatting=False, include_identity=False):
+async def run_ble_sequence(
+    conn,
+    timeout,
+    include_vin=False,
+    include_invalid=False,
+    include_formatting=False,
+    include_identity=False,
+    include_dtc=False,
+    include_multi_ecu=False,
+):
     failures = 0
     sequence = list(DEFAULT_SEQUENCE)
 
@@ -251,6 +293,12 @@ async def run_ble_sequence(conn, timeout, include_vin=False, include_invalid=Fal
 
     if include_identity:
         sequence.extend(IDENTITY_SEQUENCE)
+
+    if include_dtc:
+        sequence.extend(DTC_SEQUENCE)
+
+    if include_multi_ecu:
+        sequence.extend(MULTI_ECU_SEQUENCE)
 
     await conn.connect()
     try:
@@ -285,6 +333,8 @@ def main(argv):
     serial_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     serial_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     serial_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
+    serial_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    serial_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
     tcp_parser = subparsers.add_parser("tcp")
     tcp_parser.add_argument("--host", required=True)
@@ -293,6 +343,8 @@ def main(argv):
     tcp_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     tcp_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     tcp_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
+    tcp_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    tcp_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
     ble_parser = subparsers.add_parser("ble")
     ble_parser.add_argument("--name")
@@ -301,6 +353,8 @@ def main(argv):
     ble_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     ble_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     ble_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
+    ble_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    ble_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
     parser.add_argument("--timeout", type=float, default=1.5)
 
@@ -308,7 +362,18 @@ def main(argv):
 
     if args.transport == "ble":
         conn = BleElmConnection(args.name, args.address)
-        failures = asyncio.run(run_ble_sequence(conn, args.timeout, args.vin, args.invalid, args.formatting, args.identity))
+        failures = asyncio.run(
+            run_ble_sequence(
+                conn,
+                args.timeout,
+                args.vin,
+                args.invalid,
+                args.formatting,
+                args.identity,
+                args.dtc,
+                args.multi_ecu,
+            )
+        )
         return 1 if failures else 0
 
     if args.transport == "serial":
@@ -317,7 +382,16 @@ def main(argv):
         conn = TcpElmConnection(args.host, args.port)
 
     try:
-        failures = run_sequence(conn, args.timeout, args.vin, args.invalid, args.formatting, args.identity)
+        failures = run_sequence(
+            conn,
+            args.timeout,
+            args.vin,
+            args.invalid,
+            args.formatting,
+            args.identity,
+            args.dtc,
+            args.multi_ecu,
+        )
     finally:
         conn.close()
 

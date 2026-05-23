@@ -680,7 +680,21 @@ String ELM327Emu::processELMCmd(char *cmd)
 
     bool isStandardPid = false;
 
-    if (cmdSize == 4 || cmdSize == 5)
+    if (cmdSize == 2 || cmdSize == 3)
+    {
+        isStandardPid = true;
+
+        char tempCmd[3] = {0};
+        strncpy(tempCmd, cmd, 2);
+
+        uint32_t valu = strtol(tempCmd, NULL, 16);
+        uint8_t mode = (uint8_t)(valu & 0xFF);
+
+        outFrame.data.uint8[0] = 1;
+        outFrame.data.uint8[1] = mode;
+        outFrame.data.uint8[2] = 0x00;
+    }
+    else if (cmdSize == 4 || cmdSize == 5)
     {
         isStandardPid = true;
 

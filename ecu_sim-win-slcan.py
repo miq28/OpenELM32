@@ -16,6 +16,20 @@ def build_msg(arbid, data):
     return can.Message(arbitration_id=arbid, data=data, is_extended_id=False)
 
 
+def send_msg(msg, delay=None):
+    if delay is None:
+        delay = random.uniform(0.005, 0.03)
+
+    time.sleep(delay)
+    bus.send(msg)
+    print(f"TX: {msg}")
+
+
+def send_functional_responses(responses):
+    for response_id, data in responses:
+        send_msg(build_msg(response_id, data), 0.001)
+
+
 while True:
 
     msg = bus.recv()
@@ -27,8 +41,14 @@ while True:
 
     print(f"RX: {msg}")
 
-    if msg.arbitration_id in [0x7DF, 0x7E0]:
+    functional_request = msg.arbitration_id == 0x7DF
+
+    if msg.arbitration_id == 0x7DF:
         response_id = 0x7E8
+    elif msg.arbitration_id == 0x7E0:
+        response_id = 0x7E8
+    elif msg.arbitration_id == 0x7E1:
+        response_id = 0x7E9
     else:
         continue
 
@@ -66,6 +86,15 @@ while True:
     # --------------------------------------------
 
     if data[:3] == [0x02, 0x01, 0x00]:
+
+        if functional_request:
+            send_functional_responses(
+                [
+                    (0x7E8, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00]),
+                    (0x7E9, [0x06, 0x41, 0x00, 0x98, 0x18, 0x00, 0x01, 0x00]),
+                ]
+            )
+            continue
 
         resp = build_msg(response_id, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00])
 
@@ -209,6 +238,22 @@ while True:
         )
 
     # --------------------------------------------
+    # MODE 03/07/0A DTC responses
+    # --------------------------------------------
+
+    elif data[:2] == [0x01, 0x03]:
+
+        resp = build_msg(response_id, [0x05, 0x43, 0x01, 0x23, 0x04, 0x56, 0x00, 0x00])
+
+    elif data[:2] == [0x01, 0x07]:
+
+        resp = build_msg(response_id, [0x03, 0x47, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    elif data[:2] == [0x01, 0x0A]:
+
+        resp = build_msg(response_id, [0x03, 0x4A, 0x04, 0x20, 0x00, 0x00, 0x00, 0x00])
+
+    # --------------------------------------------
     # unsupported PID
     # --------------------------------------------
 
@@ -226,9 +271,4 @@ while True:
 
     if resp:
 
-        # realistic ECU latency
-        time.sleep(random.uniform(0.005, 0.03))
-
-        bus.send(resp)
-
-        print(f"TX: {resp}")
+        send_msg(resp)

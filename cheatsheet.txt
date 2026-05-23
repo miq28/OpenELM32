@@ -336,6 +336,10 @@ python run_elm327_tests.py --serial COM5 --serial-baud 115200 --tcp 192.168.1.24
 python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid
 
 
+python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --dtc --multi-ecu
+python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --obdlink
+
+
 Best Next Improvements
 
 Clean ELM327 protocol compatibility

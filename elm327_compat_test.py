@@ -66,6 +66,18 @@ IDENTITY_SEQUENCE = [
     ("ATIGN", [r"OK"]),
 ]
 
+OBDLINK_SEQUENCE = [
+    ("STI", [r"STN\d+V\d+\.\d+\.\d+"]),
+    ("STIX", [r"STN\d+V\d+\.\d+\.\d+"]),
+    ("STDI", [r"OBDLINK"]),
+    ("STDIX", [r"OBDLINK.*STN.*OBDSOLUTIONS|STN.*OBDLINK.*OBDSOLUTIONS"]),
+    ("STMFR", [r"OBDSOLUTIONS"]),
+    ("STSN", [r"\d{8,}"]),
+    ("STPR", [r"6"]),
+    ("STPRS", [r"CAN11/500|ISO15765-4"]),
+    ("STSLCS", [r"UART_SLEEP.*OBD_SLEEP.*VOLT_SLEEP"]),
+]
+
 DTC_SEQUENCE = [
     ("ATH0", [r"OK"]),
     ("ATS0", [r"OK"]),
@@ -227,6 +239,7 @@ def run_sequence(
     include_invalid=False,
     include_formatting=False,
     include_identity=False,
+    include_obdlink=False,
     include_dtc=False,
     include_multi_ecu=False,
 ):
@@ -244,6 +257,9 @@ def run_sequence(
 
     if include_identity:
         sequence.extend(IDENTITY_SEQUENCE)
+
+    if include_obdlink:
+        sequence.extend(OBDLINK_SEQUENCE)
 
     if include_dtc:
         sequence.extend(DTC_SEQUENCE)
@@ -276,6 +292,7 @@ async def run_ble_sequence(
     include_invalid=False,
     include_formatting=False,
     include_identity=False,
+    include_obdlink=False,
     include_dtc=False,
     include_multi_ecu=False,
 ):
@@ -293,6 +310,9 @@ async def run_ble_sequence(
 
     if include_identity:
         sequence.extend(IDENTITY_SEQUENCE)
+
+    if include_obdlink:
+        sequence.extend(OBDLINK_SEQUENCE)
 
     if include_dtc:
         sequence.extend(DTC_SEQUENCE)
@@ -333,6 +353,7 @@ def main(argv):
     serial_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     serial_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     serial_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
+    serial_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     serial_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
     serial_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
@@ -343,6 +364,7 @@ def main(argv):
     tcp_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     tcp_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     tcp_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
+    tcp_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     tcp_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
     tcp_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
@@ -353,6 +375,7 @@ def main(argv):
     ble_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     ble_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     ble_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
+    ble_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     ble_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
     ble_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
@@ -370,6 +393,7 @@ def main(argv):
                 args.invalid,
                 args.formatting,
                 args.identity,
+                args.obdlink,
                 args.dtc,
                 args.multi_ecu,
             )
@@ -389,6 +413,7 @@ def main(argv):
             args.invalid,
             args.formatting,
             args.identity,
+            args.obdlink,
             args.dtc,
             args.multi_ecu,
         )

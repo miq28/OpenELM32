@@ -33,6 +33,7 @@ def main(argv):
     parser.add_argument("--invalid", action="store_true")
     parser.add_argument("--formatting", action="store_true")
     parser.add_argument("--identity", action="store_true")
+    parser.add_argument("--obdlink", action="store_true")
     parser.add_argument("--dtc", action="store_true")
     parser.add_argument("--multi-ecu", action="store_true")
     parser.add_argument("--timeout", type=float, default=1.5)
@@ -50,6 +51,8 @@ def main(argv):
         flags.append("--formatting")
     if args.identity:
         flags.append("--identity")
+    if args.obdlink:
+        flags.append("--obdlink")
     if args.dtc:
         flags.append("--dtc")
     if args.multi_ecu:

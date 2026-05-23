@@ -71,6 +71,24 @@ static void applyDevRuntimeProfile()
     debug_to_rs485 = true;
 }
 
+static void printRuntimeStatus()
+{
+    Logger::console("Runtime status:");
+    Logger::console("  PROFILE=%s", settings.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
+    Logger::console("  APP transport: USB ELM=%s, USB baud=%u",
+                    settings.enableElmSerial ? "ON" : "OFF",
+                    settings.serialBaud);
+    Logger::console("  CONSOLECAN=%i", settings.consoleCANOutput ? 1 : 0);
+    Logger::console("  DEBUG=%i DEBUGSER=%i DEBUG485=%i",
+                    debug_enabled ? 1 : 0,
+                    debug_to_serial ? 1 : 0,
+                    debug_to_rs485 ? 1 : 0);
+    Logger::console("  LAWICEL=%i VIRTUALOBD=%i SENDBUS=%i",
+                    settings.enableLawicel ? 1 : 0,
+                    settings.enableVirtualOBD ? 1 : 0,
+                    settings.sendingBus);
+}
+
 SerialConsole::SerialConsole()
 {
     init();
@@ -95,6 +113,7 @@ void SerialConsole::printMenu()
     consolePrintln();
     consolePrintln("Short Commands:");
     consolePrintln("h = help (displays this message)");
+    consolePrintln("i = status (shows current runtime mode)");
     consolePrintln("R = reset to factory defaults");
     consolePrintln("s = Start logging to file");
     consolePrintln("S = Stop logging to file");
@@ -133,6 +152,7 @@ void SerialConsole::printMenu()
     Logger::console("SENDBUS=%i - Set which CAN bus to send messages from ELM327 emulator", settings.sendingBus);
     Logger::console("ELM327SERIAL=%i - Enable ELM327 command mode on USB serial (0=Dis, 1=En)", settings.enableElmSerial);
     Logger::console("APP=<preset> - Apply preset (OBD, SERIAL115200, SERIAL1000000, DEV)");
+    Logger::console("STATUS=1 - Show current runtime mode");
     consolePrintln();
 
     Logger::console("LAWICEL=%i - Set whether to accept LAWICEL commands (0 = Off, 1 = On)", settings.enableLawicel);
@@ -208,6 +228,10 @@ void SerialConsole::handleShortCmd()
     case '?':
     case 'H':
         printMenu();
+        break;
+    case 'i':
+    case 'I':
+        printRuntimeStatus();
         break;
     case 'R': // reset to factory defaults.
         prefs.begin(PREF_NAME, false);
@@ -649,6 +673,10 @@ void SerialConsole::handleConfigCmd()
         {
             Logger::console("Invalid app preset! Use APP=OBD, APP=SERIAL115200, APP=SERIAL1000000, or APP=DEV");
         }
+    }
+    else if (cmdString == String("STATUS"))
+    {
+        printRuntimeStatus();
     }
     else if (cmdString == String("DEBUGSER"))
     {

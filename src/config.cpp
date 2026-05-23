@@ -16,6 +16,8 @@ void printEEPROMSettings(const EEPROMSettings &cfg)
 
     consolePrintf("useBinarySerialComm : %s\n",
                   cfg.useBinarySerialComm ? "true" : "false");
+    consolePrintf("serialBaud           : %u\n",
+                  cfg.serialBaud);
     consolePrintf("logLevel             : %u\n",
                   cfg.logLevel);
     consolePrintf("systemType           : %u\n",

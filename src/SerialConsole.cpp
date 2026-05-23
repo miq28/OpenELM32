@@ -96,6 +96,7 @@ void SerialConsole::printMenu()
     // consolePrintln();
 
     Logger::console("BINSERIAL=%i - Enable/Disable Binary Sending of CANBus Frames to Serial (0=Dis, 1=En)", settings.useBinarySerialComm);
+    Logger::console("SERBAUD=%u - Set USB serial baud (115200, 1000000, etc)", settings.serialBaud);
     Logger::console("CONSOLECAN=%i - Enable/Disable CAN frame output to USB serial (0=Dis, 1=En)", settings.consoleCANOutput);
     consolePrintln();
 
@@ -470,6 +471,27 @@ void SerialConsole::handleConfigCmd()
         settings.useBinarySerialComm = newValue;
         writeEEPROM = true;
     }
+    else if (cmdString == String("SERBAUD"))
+    {
+        if (newValue >= 9600 && newValue <= 2000000)
+        {
+            Logger::console("Setting USB serial baud to %i", newValue);
+            settings.serialBaud = (uint32_t)newValue;
+            writeEEPROM = true;
+
+            Serial.flush();
+            delay(50);
+            while (Serial.available() > 0)
+            {
+                Serial.read();
+            }
+            Serial.begin(settings.serialBaud);
+        }
+        else
+        {
+            Logger::console("Invalid USB baud rate! Enter a value 9600 - 2000000");
+        }
+    }
     else if (cmdString == String("CONSOLECAN"))
     {
         if (newValue < 0)
@@ -672,6 +694,7 @@ void SerialConsole::handleConfigCmd()
         }
 
         prefs.putBool("binarycomm", settings.useBinarySerialComm);
+        prefs.putUInt("serialBaud", settings.serialBaud);
         prefs.putInt("sendingBus", settings.sendingBus);
         prefs.putBool("enableLawicel", settings.enableLawicel);
         prefs.putBool("elmSerial", settings.enableElmSerial);

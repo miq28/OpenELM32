@@ -486,6 +486,13 @@ String ELM327Emu::processELMCmd(char *cmd)
     { // if no AT then assume it is a PID request. This takes the form of four bytes which form the alpha hex digit encoding for two bytes
         // there should be four or six characters here forming the ascii representation of the PID request. Easiest for now is to turn the ascii into
         // a 16 bit number and mask off to get the bytes
+        size_t cmdSize = strlen(cmd);
+
+        if (cmdSize == 0)
+        {
+            return "";
+        }
+
         CAN_FRAME outFrame;
         outFrame.id = ecuAddress;
         outFrame.extended = false;
@@ -497,7 +504,6 @@ String ELM327Emu::processELMCmd(char *cmd)
         outFrame.data.uint8[6] = 0xAA;
         outFrame.data.uint8[7] = 0xAA;
 
-        size_t cmdSize = strlen(cmd);
         bool isStandardPid = false;
 
         // Handle standard PIDs (4 chars) or bounded requests (5 chars, e.g., "01051")

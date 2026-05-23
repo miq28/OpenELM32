@@ -43,6 +43,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "console_io.h"
 #include "BleElm327Server.h"
 
+static constexpr uint32_t DEFAULT_SERIAL_BAUD = 1000000;
+
 const char *resetReasonToStr(esp_reset_reason_t r)
 {
     switch (r)
@@ -91,6 +93,7 @@ void printPrefs()
     consolePrintf("STA_SSID=%s\n", prefs.getString("STA_SSID", "").c_str());
     consolePrintf("STA_PASS=%s\n", prefs.getString("STA_PASS", "").c_str());
     consolePrintf("binarycomm=%d\n", prefs.getBool("binarycomm", false));
+    consolePrintf("serialBaud=%u\n", prefs.getUInt("serialBaud", DEFAULT_SERIAL_BAUD));
     consolePrintf("loglevel=%u\n", prefs.getUChar("loglevel", 0));
     consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
     consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", false));
@@ -338,6 +341,7 @@ void loadSettings()
     prefs.getString("STA_PASS", settings.STA_PASS, sizeof(settings.STA_PASS));
 
     settings.useBinarySerialComm = prefs.getBool("binarycomm", false);
+    settings.serialBaud = prefs.getUInt("serialBaud", DEFAULT_SERIAL_BAUD);
     settings.logLevel = prefs.getUChar("loglevel", 1); // info
     settings.wifiMode = prefs.getUChar("wifiMode", 2); // Wifi defaults to creating an AP
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
@@ -494,6 +498,7 @@ void loadSettings()
 
     consolePrintf("deviceName=%s\n", deviceName);
     consolePrintf("binarycomm=%d\n", settings.useBinarySerialComm);
+    consolePrintf("serialBaud=%u\n", settings.serialBaud);
 }
 
 void setup()
@@ -505,7 +510,7 @@ void setup()
     // to deal with this issue.
     Serial.setTxTimeoutMs(2);
 #endif
-    Serial.begin(1000000); // for production
+    Serial.begin(DEFAULT_SERIAL_BAUD); // for production
     RS485.begin(1000000);
     debug_to_serial = true;
     consolePrintf("\n=== BOOT ===\n");
@@ -528,6 +533,12 @@ void setup()
     SysSettings.isWifiConnected = false;
 
     loadSettings();
+
+    if (settings.serialBaud != DEFAULT_SERIAL_BAUD)
+    {
+        Serial.flush();
+        Serial.begin(settings.serialBaud);
+    }
 
     // CAN0.setDebuggingMode(true);
     // CAN1.setDebuggingMode(true);
@@ -613,6 +624,11 @@ static void processElmSerialByte(uint8_t inByte)
     if (inByte == '\r' || controlLength >= (sizeof(controlBuffer) - 1))
     {
         controlBuffer[controlLength] = 0;
+
+        if (controlLength == 0)
+        {
+            return;
+        }
 
         if (strcasecmp(controlBuffer, "ELM327SERIAL=0") == 0)
         {

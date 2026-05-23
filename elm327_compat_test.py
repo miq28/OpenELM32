@@ -50,6 +50,14 @@ INVALID_SEQUENCE = [
     ("12345678", [r"^\?>$"]),
 ]
 
+FORMATTING_SEQUENCE = [
+    ("At Dp", [r"CAN11/500|ISO15765-4"]),
+    ("AT SP 0", [r"OK"]),
+    ("01 00", [r"4100|NO DATA"]),
+    ("AT H 1", [r"OK"]),
+    ("01 00", [r"7E8.*4100|4100|NO DATA"]),
+]
+
 
 class ElmConnection:
     def write(self, data):
@@ -186,7 +194,7 @@ def normalize(raw):
     return re.sub(r"\s+", "", text).upper()
 
 
-def run_sequence(conn, timeout, include_vin=False, include_invalid=False):
+def run_sequence(conn, timeout, include_vin=False, include_invalid=False, include_formatting=False):
     failures = 0
     sequence = list(DEFAULT_SEQUENCE)
 
@@ -195,6 +203,9 @@ def run_sequence(conn, timeout, include_vin=False, include_invalid=False):
 
     if include_invalid:
         sequence.extend(INVALID_SEQUENCE)
+
+    if include_formatting:
+        sequence.extend(FORMATTING_SEQUENCE)
 
     for command, patterns in sequence:
         conn.write(command.encode("ascii") + b"\r")
@@ -214,7 +225,7 @@ def run_sequence(conn, timeout, include_vin=False, include_invalid=False):
     return failures
 
 
-async def run_ble_sequence(conn, timeout, include_vin=False, include_invalid=False):
+async def run_ble_sequence(conn, timeout, include_vin=False, include_invalid=False, include_formatting=False):
     failures = 0
     sequence = list(DEFAULT_SEQUENCE)
 
@@ -223,6 +234,9 @@ async def run_ble_sequence(conn, timeout, include_vin=False, include_invalid=Fal
 
     if include_invalid:
         sequence.extend(INVALID_SEQUENCE)
+
+    if include_formatting:
+        sequence.extend(FORMATTING_SEQUENCE)
 
     await conn.connect()
     try:
@@ -255,18 +269,21 @@ def main(argv):
     serial_parser.add_argument("--baud", type=int, default=1000000)
     serial_parser.add_argument("--vin", action="store_true", help="also test ISO-TP VIN response with 0902")
     serial_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
+    serial_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
 
     tcp_parser = subparsers.add_parser("tcp")
     tcp_parser.add_argument("--host", required=True)
     tcp_parser.add_argument("--port", type=int, default=35000)
     tcp_parser.add_argument("--vin", action="store_true", help="also test ISO-TP VIN response with 0902")
     tcp_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
+    tcp_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
 
     ble_parser = subparsers.add_parser("ble")
     ble_parser.add_argument("--name")
     ble_parser.add_argument("--address")
     ble_parser.add_argument("--vin", action="store_true", help="also test ISO-TP VIN response with 0902")
     ble_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
+    ble_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
 
     parser.add_argument("--timeout", type=float, default=1.5)
 
@@ -274,7 +291,7 @@ def main(argv):
 
     if args.transport == "ble":
         conn = BleElmConnection(args.name, args.address)
-        failures = asyncio.run(run_ble_sequence(conn, args.timeout, args.vin, args.invalid))
+        failures = asyncio.run(run_ble_sequence(conn, args.timeout, args.vin, args.invalid, args.formatting))
         return 1 if failures else 0
 
     if args.transport == "serial":
@@ -283,7 +300,7 @@ def main(argv):
         conn = TcpElmConnection(args.host, args.port)
 
     try:
-        failures = run_sequence(conn, args.timeout, args.vin, args.invalid)
+        failures = run_sequence(conn, args.timeout, args.vin, args.invalid, args.formatting)
     finally:
         conn.close()
 

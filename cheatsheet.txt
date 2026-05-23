@@ -320,3 +320,40 @@ python elm327_compat_test.py ble --name "OBDLink CX"
 python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin
 python elm327_compat_test.py serial --port COM5 --baud 1000000 --vin
 python elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin
+
+
+python elm327_compat_test.py serial --port COM5 --baud 1000000 --vin --invalid
+python elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin --invalid
+python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
+
+
+Best Next Improvements
+
+Clean ELM327 protocol compatibility
+Add a small compatibility test script that sends common app startup commands and verifies exact replies: ATZ, ATI, ATE0/1, ATL0/1, ATS0/1, ATH0/1, ATSP0/6, ATDP, ATDPN, 0100, 010C, etc. This protects OBD Auto Doctor, Car Scanner, Torque, and serial mode from regressions.
+
+Multi-frame ISO-TP support
+Many real OBD features need ISO-TP multi-frame responses: VIN 0902, calibration IDs, mode 06, some UDS requests. Adding proper first-frame/consecutive-frame/flow-control handling would be a big jump in usefulness.
+
+Configurable serial baud
+Keep default 1000000, but add a persisted command like SERBAUD=115200/500000/1000000. Then OBD Auto Doctor users can stay at 115200, while OBDWiz or advanced tools can use 1000000.
+
+Runtime transport mode clarity
+Add a status command such as STATUS or extend the menu to show:
+ELM327SERIAL, CONSOLECAN, DEBUGSER, DEBUG485, WiFi mode, active ELM transport, connected clients.
+
+Reduce debug noise during ELM use
+Debug logs are useful now, but production ELM sessions should be silent unless enabled. Add a clear profile:
+PROFILE=DEV vs PROFILE=OBD
+where OBD mode disables serial/RS485 debug and CAN stat spam.
+
+App compatibility matrix
+Track what works:
+
+OBD Auto Doctor: serial/WiFi/BLE
+Car Scanner: transport + baud
+Torque: BLE/WiFi
+OBDWiz: currently rejected by vendor validation
+This makes debugging much faster.
+Virtual ECU improvements
+Your fake ECU currently answers basic PIDs. Add more standard PIDs and realistic dynamic values: RPM, speed, coolant temp, fuel trims, voltage, VIN. This helps demos and app validation.

@@ -41,6 +41,25 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static uint32_t elmTxnCounter = 0;
 
+static bool isHexDigitString(const char *value)
+{
+    if (value == nullptr || *value == 0)
+    {
+        return false;
+    }
+
+    while (*value != 0)
+    {
+        if (!isxdigit((unsigned char)*value))
+        {
+            return false;
+        }
+        value++;
+    }
+
+    return true;
+}
+
 /*
  * Constructor. Nothing at the moment
  */
@@ -504,6 +523,16 @@ String ELM327Emu::processELMCmd(char *cmd)
         if (cmdSize == 0)
         {
             return "";
+        }
+
+        if (!isHexDigitString(cmd) ||
+            !(cmdSize == 2 || cmdSize == 3 || cmdSize == 4 ||
+              cmdSize == 5 || cmdSize == 6 || cmdSize == 7))
+        {
+            retString.concat("?");
+            retString.concat(lineEnding);
+            retString.concat(">");
+            return retString;
         }
 
         CAN_FRAME outFrame;

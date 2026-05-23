@@ -22,6 +22,8 @@ void printEEPROMSettings(const EEPROMSettings &cfg)
                   cfg.logLevel);
     consolePrintf("systemType           : %u\n",
                   cfg.systemType);
+    consolePrintf("runtimeProfile       : %s\n",
+                  cfg.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
 
     // ------------------------------------------------------------------
     // Bus

@@ -95,6 +95,8 @@ void printPrefs()
     consolePrintf("binarycomm=%d\n", prefs.getBool("binarycomm", false));
     consolePrintf("serialBaud=%u\n", prefs.getUInt("serialBaud", DEFAULT_SERIAL_BAUD));
     consolePrintf("loglevel=%u\n", prefs.getUChar("loglevel", 0));
+    consolePrintf("runtimeProfile=%s\n",
+                  prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV) == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
     consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
     consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", false));
     consolePrintf("consoleCAN=%d\n", prefs.getBool("consoleCAN", true));
@@ -343,6 +345,7 @@ void loadSettings()
     settings.useBinarySerialComm = prefs.getBool("binarycomm", false);
     settings.serialBaud = prefs.getUInt("serialBaud", DEFAULT_SERIAL_BAUD);
     settings.logLevel = prefs.getUChar("loglevel", 1); // info
+    settings.runtimeProfile = prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV);
     settings.wifiMode = prefs.getUChar("wifiMode", 2); // Wifi defaults to creating an AP
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
     settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
@@ -358,6 +361,13 @@ void loadSettings()
     debug_enabled = prefs.getBool("dbg_en", true);
     debug_to_serial = prefs.getBool("dbg_ser", false);
     debug_to_rs485 = prefs.getBool("dbg_485", true);
+
+    if (settings.runtimeProfile == RUNTIME_PROFILE_OBD)
+    {
+        settings.consoleCANOutput = false;
+        debug_to_serial = false;
+        debug_to_rs485 = true;
+    }
 
     uint8_t defaultVal;
 #if CONFIG_IDF_TARGET_ESP32
@@ -499,6 +509,8 @@ void loadSettings()
     consolePrintf("deviceName=%s\n", deviceName);
     consolePrintf("binarycomm=%d\n", settings.useBinarySerialComm);
     consolePrintf("serialBaud=%u\n", settings.serialBaud);
+    consolePrintf("runtimeProfile=%s\n",
+                  settings.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
 }
 
 void setup()

@@ -111,6 +111,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define PREF_NAME "ESP32RET"
 #define EVTV_NAME "ESP32RET"
 #define MACC_NAME "A0RET"
+#define RUNTIME_PROFILE_DEV 0
+#define RUNTIME_PROFILE_OBD 1
 
 #define MARK_LIMIT 6 // # of our analog input pins to use for marking. Defaults to all of them. Send voltage to pin to trigger it
 
@@ -171,6 +173,7 @@ struct EEPROMSettings
 
     uint8_t logLevel;   // Level of logging to output on serial line
     uint8_t systemType; // 0 = A0RET, 1 = EVTV ESP32 Board, 2 = Macchine 5-CAN board
+    uint8_t runtimeProfile; // 0 = DEV, 1 = OBD
 
     char btName[62];
     int sendingBus;

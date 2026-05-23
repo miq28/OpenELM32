@@ -113,6 +113,8 @@ void SerialConsole::printMenu()
     Logger::console("DEBUG=%i - Enable runtime debug output", debug_enabled);
     Logger::console("DEBUGSER=%i - Debug output to USB serial", debug_to_serial);
     Logger::console("DEBUG485=%i - Debug output to RS485", debug_to_rs485);
+    Logger::console("PROFILE=%s - Runtime profile (DEV or OBD)",
+                    settings.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
     consolePrintln();
 
     Logger::console("WIFIMODE=%i - Set mode for WiFi (0 = Wifi Off, 1 = Connect to AP, 2 = Create AP", settings.wifiMode);
@@ -557,6 +559,36 @@ void SerialConsole::handleConfigCmd()
 
         writeEEPROM = true;
     }
+    else if (cmdString == String("PROFILE"))
+    {
+        String profile = String(newString);
+        profile.toUpperCase();
+
+        if (profile == String("OBD") || profile == String("1"))
+        {
+            settings.runtimeProfile = RUNTIME_PROFILE_OBD;
+            settings.consoleCANOutput = false;
+            canManager.setSendToConsole(false);
+            debug_enabled = true;
+            debug_to_serial = false;
+            debug_to_rs485 = true;
+            Logger::console("Runtime profile set to OBD");
+            writeEEPROM = true;
+        }
+        else if (profile == String("DEV") || profile == String("0"))
+        {
+            settings.runtimeProfile = RUNTIME_PROFILE_DEV;
+            debug_enabled = true;
+            debug_to_serial = false;
+            debug_to_rs485 = true;
+            Logger::console("Runtime profile set to DEV");
+            writeEEPROM = true;
+        }
+        else
+        {
+            Logger::console("Invalid profile! Use PROFILE=OBD or PROFILE=DEV");
+        }
+    }
     else if (cmdString == String("DEBUGSER"))
     {
         debug_to_serial = (newValue != 0);
@@ -705,6 +737,7 @@ void SerialConsole::handleConfigCmd()
         prefs.putBool("dbg_485", debug_to_rs485);
 
         prefs.putUChar("loglevel", settings.logLevel);
+        prefs.putUChar("runtimeProfile", settings.runtimeProfile);
         prefs.putUChar("systype", settings.systemType);
         prefs.putUChar("wifiMode", settings.wifiMode);
         prefs.putString("SSID", settings.SSID);

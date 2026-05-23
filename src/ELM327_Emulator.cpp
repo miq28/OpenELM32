@@ -73,6 +73,12 @@ ELM327Emu::ELM327Emu()
 
     replyAccumulator = "";
 
+    multiFrameActive = false;
+    multiFrameExpectedLen = 0;
+    multiFrameReceivedLen = 0;
+    multiFrameNextSeq = 1;
+    multiFrameReplyId = 0;
+
 }
 
 void ELM327Emu::setWiFiClient(WiFiClient *client)
@@ -146,7 +152,14 @@ void ELM327Emu::loop()
         // ---- collected replies, wait a short quiet window ----
         if (gotReply)
         {
-            if ((now - lastReplyTime) > 8)
+            if (multiFrameActive && (now - lastReplyTime) > 200)
+            {
+                multiFrameActive = false;
+                waitingForReply = false;
+                txBuffer.sendString("NO DATA\r\n>");
+                sendTxBuffer();
+            }
+            else if (!multiFrameActive && (now - lastReplyTime) > 8)
             {
                 waitingForReply = false;
 
@@ -566,6 +579,11 @@ String ELM327Emu::processELMCmd(char *cmd)
 
         gotReply = false;
         replyAccumulator = "";
+        multiFrameActive = false;
+        multiFrameExpectedLen = 0;
+        multiFrameReceivedLen = 0;
+        multiFrameNextSeq = 1;
+        multiFrameReplyId = 0;
 
         waitingForReply = true;
         requestStartTime = millis();
@@ -608,7 +626,22 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
         return;
     }
 
+    uint8_t pciType = frame.data.uint8[0] & 0xF0;
     uint8_t sid = frame.data.uint8[1];
+
+    if (pciType == 0x10 && frame.length >= 3)
+    {
+        sid = frame.data.uint8[2];
+    }
+    else if (pciType == 0x20)
+    {
+        if (!multiFrameActive || frame.id != multiFrameReplyId)
+        {
+            return;
+        }
+
+        sid = pendingMode + 0x40;
+    }
 
     // positive response SID must equal request SID + 0x40
     bool positive =
@@ -640,6 +673,96 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
 
     DEBUG("\n");
     DEBUG("====================================================\n\n");
+
+    if (pciType == 0x10)
+    {
+        uint16_t totalLen =
+            ((uint16_t)(frame.data.uint8[0] & 0x0F) << 8) |
+            frame.data.uint8[1];
+
+        if (totalLen == 0 || totalLen > sizeof(multiFramePayload))
+        {
+            return;
+        }
+
+        multiFrameActive = true;
+        multiFrameExpectedLen = totalLen;
+        multiFrameReceivedLen = 0;
+        multiFrameNextSeq = 1;
+        multiFrameReplyId = frame.id;
+
+        uint8_t firstPayloadLen = totalLen < 6 ? totalLen : 6;
+        for (uint8_t i = 0; i < firstPayloadLen; i++)
+        {
+            multiFramePayload[multiFrameReceivedLen++] = frame.data.uint8[2 + i];
+        }
+
+        CAN_FRAME flowControl;
+        flowControl.id = ecuAddress;
+        if (flowControl.id == 0x7DF && frame.id >= 0x7E8 && frame.id <= 0x7EF)
+        {
+            flowControl.id = frame.id - 8;
+        }
+        flowControl.extended = false;
+        flowControl.length = 8;
+        flowControl.rtr = 0;
+        flowControl.data.uint8[0] = 0x30;
+        flowControl.data.uint8[1] = 0x00;
+        flowControl.data.uint8[2] = 0x00;
+        flowControl.data.uint8[3] = 0xAA;
+        flowControl.data.uint8[4] = 0xAA;
+        flowControl.data.uint8[5] = 0xAA;
+        flowControl.data.uint8[6] = 0xAA;
+        flowControl.data.uint8[7] = 0xAA;
+        canManager.sendFrame(canBuses[sendingBus], flowControl);
+
+        lastReplyTime = millis();
+        gotReply = true;
+        return;
+    }
+
+    if (pciType == 0x20)
+    {
+        if (!multiFrameActive || frame.id != multiFrameReplyId)
+        {
+            return;
+        }
+
+        uint8_t seq = frame.data.uint8[0] & 0x0F;
+        if (seq != multiFrameNextSeq)
+        {
+            multiFrameActive = false;
+            return;
+        }
+
+        multiFrameNextSeq = (multiFrameNextSeq + 1) & 0x0F;
+
+        for (uint8_t i = 1;
+             i < frame.length && multiFrameReceivedLen < multiFrameExpectedLen;
+             i++)
+        {
+            multiFramePayload[multiFrameReceivedLen++] = frame.data.uint8[i];
+        }
+
+        lastReplyTime = millis();
+        gotReply = true;
+
+        if (multiFrameReceivedLen < multiFrameExpectedLen)
+        {
+            return;
+        }
+
+        multiFrameActive = false;
+
+        frame.id = multiFrameReplyId;
+        frame.length = 8;
+        frame.data.uint8[0] = multiFrameExpectedLen;
+        for (uint8_t i = 0; i < 7; i++)
+        {
+            frame.data.uint8[1 + i] =
+                i < multiFrameExpectedLen ? multiFramePayload[i] : 0;
+        }
+    }
 
     char buff[32];
 
@@ -686,11 +809,12 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     // payload starts at byte1
 
     uint8_t payloadLen = frame.data.uint8[0];
+    const uint8_t *payload = &frame.data.uint8[1];
 
-    // sanity clamp
     if (payloadLen > 7)
     {
-        payloadLen = 7;
+        payloadLen = multiFrameExpectedLen;
+        payload = multiFramePayload;
     }
 
     for (int i = 0; i < payloadLen; i++)
@@ -699,13 +823,13 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
         {
             sprintf(buff,
                     "%02X ",
-                    frame.data.uint8[1 + i]);
+                    payload[i]);
         }
         else
         {
             sprintf(buff,
                     "%02X",
-                    frame.data.uint8[1 + i]);
+                    payload[i]);
         }
 
         replyAccumulator += buff;

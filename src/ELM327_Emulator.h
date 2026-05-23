@@ -114,6 +114,13 @@ private:
     uint32_t activeTxn;
 
     String replyAccumulator;
+
+    bool multiFrameActive;
+    uint16_t multiFrameExpectedLen;
+    uint16_t multiFrameReceivedLen;
+    uint8_t multiFrameNextSeq;
+    uint32_t multiFrameReplyId;
+    uint8_t multiFramePayload[64];
 };
 
 #endif

@@ -36,6 +36,13 @@ DEFAULT_SEQUENCE = [
     ("0100", [r"7E8.*4100|4100|NO DATA"]),
 ]
 
+VIN_SEQUENCE = [
+    ("ATH0", [r"OK"]),
+    ("ATS0", [r"OK"]),
+    ("ATSP6", [r"OK"]),
+    ("0902", [r"490201[0-9A-F]{34}|NO DATA"]),
+]
+
 
 class ElmConnection:
     def write(self, data):
@@ -172,10 +179,14 @@ def normalize(raw):
     return re.sub(r"\s+", "", text).upper()
 
 
-def run_sequence(conn, timeout):
+def run_sequence(conn, timeout, include_vin=False):
     failures = 0
+    sequence = list(DEFAULT_SEQUENCE)
 
-    for command, patterns in DEFAULT_SEQUENCE:
+    if include_vin:
+        sequence.extend(VIN_SEQUENCE)
+
+    for command, patterns in sequence:
         conn.write(command.encode("ascii") + b"\r")
         raw = conn.read_until_prompt(timeout)
         shown = printable(raw)
@@ -193,12 +204,16 @@ def run_sequence(conn, timeout):
     return failures
 
 
-async def run_ble_sequence(conn, timeout):
+async def run_ble_sequence(conn, timeout, include_vin=False):
     failures = 0
+    sequence = list(DEFAULT_SEQUENCE)
+
+    if include_vin:
+        sequence.extend(VIN_SEQUENCE)
 
     await conn.connect()
     try:
-        for command, patterns in DEFAULT_SEQUENCE:
+        for command, patterns in sequence:
             await conn.async_write(command.encode("ascii") + b"\r")
             raw = await conn.async_read_until_prompt(timeout)
             shown = printable(raw)
@@ -225,14 +240,17 @@ def main(argv):
     serial_parser = subparsers.add_parser("serial")
     serial_parser.add_argument("--port", required=True)
     serial_parser.add_argument("--baud", type=int, default=1000000)
+    serial_parser.add_argument("--vin", action="store_true", help="also test ISO-TP VIN response with 0902")
 
     tcp_parser = subparsers.add_parser("tcp")
     tcp_parser.add_argument("--host", required=True)
     tcp_parser.add_argument("--port", type=int, default=35000)
+    tcp_parser.add_argument("--vin", action="store_true", help="also test ISO-TP VIN response with 0902")
 
     ble_parser = subparsers.add_parser("ble")
     ble_parser.add_argument("--name")
     ble_parser.add_argument("--address")
+    ble_parser.add_argument("--vin", action="store_true", help="also test ISO-TP VIN response with 0902")
 
     parser.add_argument("--timeout", type=float, default=1.5)
 
@@ -240,7 +258,7 @@ def main(argv):
 
     if args.transport == "ble":
         conn = BleElmConnection(args.name, args.address)
-        failures = asyncio.run(run_ble_sequence(conn, args.timeout))
+        failures = asyncio.run(run_ble_sequence(conn, args.timeout, args.vin))
         return 1 if failures else 0
 
     if args.transport == "serial":
@@ -249,7 +267,7 @@ def main(argv):
         conn = TcpElmConnection(args.host, args.port)
 
     try:
-        failures = run_sequence(conn, args.timeout)
+        failures = run_sequence(conn, args.timeout, args.vin)
     finally:
         conn.close()
 

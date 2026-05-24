@@ -29,6 +29,8 @@ private:
     NimBLECharacteristic* obdlinkNotifyChar = nullptr;
     NimBLECharacteristic* genericSerialChar = nullptr;
     bool clientConnected = false;
+    bool obdlinkNotifySubscribed = false;
+    bool genericSerialSubscribed = false;
     String lastResponse;
 
     ServerCallbacks* serverCallbacks = nullptr;
@@ -37,5 +39,5 @@ private:
 
     static String printable(String value);
     NimBLECharacteristic* addDeviceInfoCharacteristic(NimBLEService* service, const char* uuid, const char* value);
-    static void notifyChunked(NimBLECharacteristic* characteristic, const String& response, const char* label);
+    void notifyChunked(NimBLECharacteristic* characteristic, const String& response, const char* label);
 };

@@ -20,6 +20,8 @@ public:
 
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
         owner.clientConnected = false;
+        owner.obdlinkNotifySubscribed = false;
+        owner.genericSerialSubscribed = false;
         consolePrintf("[BLE] Client disconnected. Reason: %d (%s). Restarting advertising...\n",
                       reason,
                       NimBLEUtils::returnCodeToString(reason));
@@ -63,9 +65,17 @@ public:
     }
 
     void onSubscribe(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override {
+        const bool subscribed = subValue != 0;
+
+        if (characteristic == owner.obdlinkNotifyChar) {
+            owner.obdlinkNotifySubscribed = subscribed;
+        } else if (characteristic == owner.genericSerialChar) {
+            owner.genericSerialSubscribed = subscribed;
+        }
+
         consolePrintf("[BLE] Subscribe %s: %s\n",
                       characteristic->getUUID().toString().c_str(),
-                      subValue == 0 ? "off" : "on");
+                      subscribed ? "on" : "off");
     }
 
 private:
@@ -169,9 +179,14 @@ void BleElm327Server::begin() {
 
 void BleElm327Server::notifyResponse(const String& response) {
     lastResponse = response;
-    
-    notifyChunked(obdlinkNotifyChar, response, "FFF1");
-    notifyChunked(genericSerialChar, response, "FFE1");
+
+    if (obdlinkNotifySubscribed) {
+        notifyChunked(obdlinkNotifyChar, response, "FFF1");
+    } else if (genericSerialSubscribed) {
+        notifyChunked(genericSerialChar, response, "FFE1");
+    } else {
+        consolePrintln("[BLE] notify skipped: no subscribed ELM characteristic");
+    }
 
     consolePrintf("[ELM] Response: %s\n", printable(response).c_str());
 }

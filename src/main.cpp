@@ -419,6 +419,7 @@ void loadSettings()
     settings.systemType == defaultVal;
     Logger::console("Running on EVTV ESP32-S3 Board");
     canBuses[0] = &CAN0;
+    CAN0.setCANPins(CAN_RX, CAN_TX);
     // canBuses[1] = &CAN1;
     // CAN1.setINTPin(3);
     // CAN1.setCSPin(10);

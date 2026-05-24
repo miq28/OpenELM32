@@ -15,6 +15,11 @@ parser.add_argument(
     help="ELM protocol: 6=CAN11/500, 7=CAN29/500, 8=CAN11/250, 9=CAN29/250",
 )
 parser.add_argument("--bitrate", type=int, help="override CAN bitrate")
+parser.add_argument(
+    "--multi-ecu",
+    action="store_true",
+    help="reply from two ECUs to functional PID 0100 requests",
+)
 args = parser.parse_args()
 
 PROTOCOLS = {
@@ -153,12 +158,16 @@ while True:
         if functional_request:
             primary_id = protocol["functional_response_ids"][0]
             secondary_id = protocol["functional_response_ids"][1]
-            send_functional_responses(
-                [
-                    (primary_id, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00]),
-                    (secondary_id, [0x06, 0x41, 0x00, 0x98, 0x18, 0x00, 0x01, 0x00]),
-                ]
-            )
+            responses = [
+                (primary_id, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00]),
+            ]
+
+            if args.multi_ecu:
+                responses.append(
+                    (secondary_id, [0x06, 0x41, 0x00, 0x98, 0x18, 0x00, 0x01, 0x00])
+                )
+
+            send_functional_responses(responses)
             continue
 
         resp = build_msg(response_id, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00])
@@ -290,6 +299,33 @@ while True:
     elif data[:3] == [0x02, 0x01, 0x20]:
 
         resp = build_msg(response_id, [0x06, 0x41, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    # --------------------------------------------
+    # MODE 06 MID 00 - Supported monitor IDs 01-20
+    # Keep simple: no Mode 06 monitor IDs advertised.
+    # --------------------------------------------
+
+    elif data[:3] == [0x02, 0x06, 0x00]:
+
+        resp = build_msg(response_id, [0x06, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    # --------------------------------------------
+    # MODE 08 TID 00 - Supported control IDs 01-20
+    # Keep simple: no Mode 08 controls advertised.
+    # --------------------------------------------
+
+    elif data[:3] == [0x02, 0x08, 0x00]:
+
+        resp = build_msg(response_id, [0x06, 0x48, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    # --------------------------------------------
+    # MODE 09 PID 00 - Supported info types 01-20
+    # Advertise VIN (02) and ECU name (0A).
+    # --------------------------------------------
+
+    elif data[:3] == [0x02, 0x09, 0x00]:
+
+        resp = build_msg(response_id, [0x06, 0x49, 0x00, 0x40, 0x40, 0x00, 0x00, 0x00])
 
     # --------------------------------------------
     # MODE 09 PID 0A - ECU name

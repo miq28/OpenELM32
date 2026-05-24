@@ -73,6 +73,7 @@ print(f"Realistic ECU simulator started: {protocol['name']} on {args.port} @ {bi
 start_time = time.time()
 
 VIN = "JT2BG22K1V0123456"
+DTC_P2304 = [0x23, 0x04]
 
 
 def build_msg(arbid, data):
@@ -171,6 +172,59 @@ while True:
             continue
 
         resp = build_msg(response_id, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00])
+
+    # --------------------------------------------
+    # MODE 02 freeze frame data
+    # --------------------------------------------
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x00:
+
+        # Include PID 02 so apps can request the DTC that caused the freeze frame.
+        resp = build_msg(response_id, [0x06, 0x42, 0x00, 0xD8, 0x19, 0x80, 0x11, 0x00])
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x02:
+
+        resp = build_msg(response_id, [0x04, 0x42, 0x02, *DTC_P2304, 0x00, 0x00, 0x00])
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x04:
+
+        raw = int(engine_load * 255 / 100)
+        resp = build_msg(response_id, [0x03, 0x42, 0x04, raw, 0x00, 0x00, 0x00, 0x00])
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x05:
+
+        resp = build_msg(
+            response_id, [0x03, 0x42, 0x05, coolant_c + 40, 0x00, 0x00, 0x00, 0x00]
+        )
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x0C:
+
+        raw = rpm * 4
+        resp = build_msg(
+            response_id,
+            [0x04, 0x42, 0x0C, (raw >> 8) & 0xFF, raw & 0xFF, 0x00, 0x00, 0x00],
+        )
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x0D:
+
+        resp = build_msg(response_id, [0x03, 0x42, 0x0D, speed, 0x00, 0x00, 0x00, 0x00])
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x10:
+
+        raw = 650
+        resp = build_msg(
+            response_id,
+            [0x04, 0x42, 0x10, (raw >> 8) & 0xFF, raw & 0xFF, 0x00, 0x00, 0x00],
+        )
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x11:
+
+        raw = int(throttle * 255 / 100)
+        resp = build_msg(response_id, [0x03, 0x42, 0x11, raw, 0x00, 0x00, 0x00, 0x00])
+
+    elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x1C:
+
+        resp = build_msg(response_id, [0x03, 0x42, 0x1C, 0x06, 0x00, 0x00, 0x00, 0x00])
 
     # --------------------------------------------
     # RPM
@@ -344,15 +398,15 @@ while True:
 
     elif data[:2] == [0x01, 0x03]:
 
-        resp = build_msg(response_id, [0x05, 0x43, 0x01, 0x23, 0x04, 0x56, 0x00, 0x00])
+        resp = build_msg(response_id, [0x05, 0x43, 0x01, *DTC_P2304, 0x00, 0x00, 0x00])
 
     elif data[:2] == [0x01, 0x07]:
 
-        resp = build_msg(response_id, [0x03, 0x47, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00])
+        resp = build_msg(response_id, [0x05, 0x47, 0x01, *DTC_P2304, 0x00, 0x00, 0x00])
 
     elif data[:2] == [0x01, 0x0A]:
 
-        resp = build_msg(response_id, [0x03, 0x4A, 0x04, 0x20, 0x00, 0x00, 0x00, 0x00])
+        resp = build_msg(response_id, [0x05, 0x4A, 0x01, *DTC_P2304, 0x00, 0x00, 0x00])
 
     # --------------------------------------------
     # unsupported PID

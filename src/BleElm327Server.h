@@ -31,6 +31,7 @@ private:
     bool clientConnected = false;
     bool obdlinkNotifySubscribed = false;
     bool genericSerialSubscribed = false;
+    uint16_t peerMtu = 23;
     String lastResponse;
 
     ServerCallbacks* serverCallbacks = nullptr;

@@ -82,9 +82,9 @@ DTC_SEQUENCE = [
     ("ATH0", [r"OK"]),
     ("ATS0", [r"OK"]),
     ("ATSH7DF", [r"OK"]),
-    ("03", [r"4301230456|NO DATA"]),
-    ("07", [r"470300|NO DATA"]),
-    ("0A", [r"4A0420|NO DATA"]),
+    ("03", [r"43012304|NO DATA"]),
+    ("07", [r"47012304|NO DATA"]),
+    ("0A", [r"4A012304|NO DATA"]),
     ("ATSH7E0", [r"OK"]),
 ]
 
@@ -104,6 +104,9 @@ class ElmConnection:
     def read_until_prompt(self, timeout):
         raise NotImplementedError
 
+    def drain(self, duration=0.15):
+        pass
+
     def close(self):
         pass
 
@@ -112,23 +115,42 @@ class TcpElmConnection(ElmConnection):
     def __init__(self, host, port):
         self.sock = socket.create_connection((host, port), timeout=5.0)
         self.sock.settimeout(0.05)
+        self.buffer = bytearray()
 
     def write(self, data):
         self.sock.sendall(data)
 
     def read_until_prompt(self, timeout):
         deadline = time.monotonic() + timeout
-        chunks = []
+        while time.monotonic() < deadline:
+            if b">" in self.buffer:
+                index = self.buffer.index(b">") + 1
+                data = bytes(self.buffer[:index])
+                del self.buffer[:index]
+                return data
+
+            try:
+                data = self.sock.recv(256)
+                if data:
+                    self.buffer.extend(data)
+            except socket.timeout:
+                pass
+
+        data = bytes(self.buffer)
+        self.buffer.clear()
+        return data
+
+    def drain(self, duration=0.15):
+        deadline = time.monotonic() + duration
+        self.buffer.clear()
         while time.monotonic() < deadline:
             try:
                 data = self.sock.recv(256)
                 if data:
-                    chunks.append(data)
-                    if b">" in data:
-                        break
+                    self.buffer.clear()
+                    deadline = time.monotonic() + duration
             except socket.timeout:
                 pass
-        return b"".join(chunks)
 
     def close(self):
         self.sock.close()
@@ -160,6 +182,14 @@ class SerialElmConnection(ElmConnection):
                     break
         return b"".join(chunks)
 
+    def drain(self, duration=0.15):
+        deadline = time.monotonic() + duration
+        self.serial.reset_input_buffer()
+        while time.monotonic() < deadline:
+            if self.serial.read(256):
+                self.serial.reset_input_buffer()
+                deadline = time.monotonic() + duration
+
     def close(self):
         self.serial.close()
 
@@ -180,9 +210,12 @@ class BleElmConnection(ElmConnection):
         self.address = address
         self.timeout = timeout
         self.client = None
-        self.buffer = bytearray()
+        self.loop = None
+        self.queue = None
 
     async def connect(self):
+        self.loop = asyncio.get_running_loop()
+        self.queue = asyncio.Queue()
         target = self.address
 
         if target is None:
@@ -200,21 +233,36 @@ class BleElmConnection(ElmConnection):
         await self.client.start_notify(OBDLINK_NOTIFY_UUID, self._on_notify)
 
     def _on_notify(self, _sender, data):
-        self.buffer.extend(data)
+        if self.loop is not None and self.queue is not None:
+            self.loop.call_soon_threadsafe(self.queue.put_nowait, bytes(data))
 
     async def async_write(self, data):
         await self.client.write_gatt_char(OBDLINK_WRITE_UUID, data, response=False)
 
     async def async_read_until_prompt(self, timeout):
         deadline = time.monotonic() + timeout
+        chunks = []
         while time.monotonic() < deadline:
-            if b">" in self.buffer:
+            remaining = deadline - time.monotonic()
+            try:
+                data = await asyncio.wait_for(self.queue.get(), timeout=remaining)
+            except asyncio.TimeoutError:
                 break
-            await asyncio.sleep(0.01)
 
-        data = bytes(self.buffer)
-        self.buffer.clear()
-        return data
+            chunks.append(data)
+            if b">" in data:
+                break
+
+        return b"".join(chunks)
+
+    async def async_drain(self, duration=0.15):
+        deadline = time.monotonic() + duration
+        while time.monotonic() < deadline:
+            try:
+                await asyncio.wait_for(self.queue.get(), timeout=0.01)
+                deadline = time.monotonic() + duration
+            except asyncio.TimeoutError:
+                pass
 
     async def async_close(self):
         if self.client is not None and self.client.is_connected:
@@ -268,6 +316,7 @@ def run_sequence(
         sequence.extend(MULTI_ECU_SEQUENCE)
 
     for command, patterns in sequence:
+        conn.drain()
         conn.write(command.encode("ascii") + b"\r")
         raw = conn.read_until_prompt(timeout)
         shown = printable(raw)
@@ -322,7 +371,9 @@ async def run_ble_sequence(
 
     await conn.connect()
     try:
+        await conn.async_drain()
         for command, patterns in sequence:
+            await conn.async_drain()
             await conn.async_write(command.encode("ascii") + b"\r")
             raw = await conn.async_read_until_prompt(timeout)
             shown = printable(raw)

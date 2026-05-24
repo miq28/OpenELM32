@@ -11,6 +11,7 @@ public:
 
     void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
         owner.clientConnected = true;
+        owner.peerMtu = connInfo.getMTU();
         consolePrintf("[BLE] Client connected. Address: %s, ID Address: %s, Handle: %u\n",
                       connInfo.getAddress().toString().c_str(),
                       connInfo.getIdAddress().toString().c_str(),
@@ -30,6 +31,7 @@ public:
         owner.clientConnected = false;
         owner.obdlinkNotifySubscribed = false;
         owner.genericSerialSubscribed = false;
+        owner.peerMtu = 23;
         consolePrintf("[BLE] Client disconnected. Reason: %d (%s). Restarting advertising...\n",
                       reason,
                       NimBLEUtils::returnCodeToString(reason));
@@ -39,6 +41,7 @@ public:
     }
 
     void onMTUChange(uint16_t mtu, NimBLEConnInfo& connInfo) override {
+        owner.peerMtu = mtu;
         consolePrintf("[BLE] MTU updated: %u for handle: %u\n", mtu, connInfo.getConnHandle());
     }
 
@@ -218,7 +221,10 @@ void BleElm327Server::notifyChunked(NimBLECharacteristic* characteristic,
         return;
     }
 
-    constexpr size_t maxChunkLen = 20; // ATT payload for default MTU 23.
+    size_t maxChunkLen = peerMtu > 3 ? peerMtu - 3 : 20;
+    if (maxChunkLen < 20) {
+        maxChunkLen = 20;
+    }
     size_t offset = 0;
     size_t chunks = 0;
 

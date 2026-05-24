@@ -104,6 +104,11 @@ private:
     String processELMCmd(char *cmd);
     void sendTxBuffer();
     void flushPendingReply();
+    void setProtocol(uint8_t protocol);
+    bool isCurrentProtocolSupported() const;
+    bool isCurrentProtocolExtended() const;
+    uint32_t currentProtocolBitrate() const;
+    uint32_t currentProtocolFunctionalId() const;
 
     bool waitingForReply;
     uint32_t requestStartTime;

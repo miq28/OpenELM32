@@ -215,6 +215,48 @@ void ELM327Emu::flushPendingReply()
     sendTxBuffer();
 }
 
+bool ELM327Emu::isCurrentProtocolSupported() const
+{
+    return currentProtocol == 6 ||
+           currentProtocol == 7 ||
+           currentProtocol == 8 ||
+           currentProtocol == 9;
+}
+
+bool ELM327Emu::isCurrentProtocolExtended() const
+{
+    return currentProtocol == 7 ||
+           currentProtocol == 9;
+}
+
+uint32_t ELM327Emu::currentProtocolBitrate() const
+{
+    return (currentProtocol == 8 || currentProtocol == 9) ? 250000 : 500000;
+}
+
+uint32_t ELM327Emu::currentProtocolFunctionalId() const
+{
+    return isCurrentProtocolExtended() ? 0x18DB33F1 : 0x7DF;
+}
+
+void ELM327Emu::setProtocol(uint8_t protocol)
+{
+    currentProtocol = protocol;
+
+    if (!isCurrentProtocolSupported())
+    {
+        return;
+    }
+
+    ecuAddress = currentProtocolFunctionalId();
+
+    if (canBuses[sendingBus] != nullptr)
+    {
+        canBuses[sendingBus]->begin(currentProtocolBitrate());
+        canBuses[sendingBus]->watchFor();
+    }
+}
+
 void ELM327Emu::sendTxBuffer()
 {
     if (activeTransport == TRANSPORT_WIFI &&
@@ -372,7 +414,24 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "stprs"))
         {
-            retString.concat("ISO 15765-4 (CAN 11/500)");
+            switch (currentProtocol)
+            {
+            case 6:
+                retString.concat("ISO 15765-4 (CAN 11/500)");
+                break;
+            case 7:
+                retString.concat("ISO 15765-4 (CAN 29/500)");
+                break;
+            case 8:
+                retString.concat("ISO 15765-4 (CAN 11/250)");
+                break;
+            case 9:
+                retString.concat("ISO 15765-4 (CAN 29/250)");
+                break;
+            default:
+                retString.concat("UNKNOWN");
+                break;
+            }
         }
         else if (!strcmp(cmd, "stpr"))
         {
@@ -426,8 +485,21 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strncmp(cmd, "stp", 3))
         {
-            currentProtocol = 6;
-            ecuAddress = 0x7E0;
+            uint8_t requested = strtol(cmd + 3, NULL, 16);
+
+            if (requested == 0)
+            {
+                setProtocol(6);
+            }
+            else if (requested >= 6 && requested <= 9)
+            {
+                setProtocol(requested);
+            }
+            else
+            {
+                currentProtocol = requested;
+            }
+
             retString.concat("OK");
         }
         else if (!strncmp(cmd, "stcaf", 5))
@@ -480,8 +552,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             bDLC = false;
             bSpaces = true;
             bBatchedCommands = false;
-            currentProtocol = 6;
-            ecuAddress = 0x7DF;
+            setProtocol(6);
 
             retString.concat("ELM327 v1.4b");
         }
@@ -565,20 +636,44 @@ String ELM327Emu::processELMCmd(char *cmd)
             switch (requested)
             {
             case 0:
+                setProtocol(6);
+                retString.concat("OK");
+                break;
+
             case 6:
-                currentProtocol = 6;
-                ecuAddress = 0x7E0;
+            case 7:
+            case 8:
+            case 9:
+                setProtocol(requested);
                 retString.concat("OK");
                 break;
 
             default:
+                currentProtocol = requested;
                 retString.concat("OK");
                 break;
             }
         }
         else if (!strcmp(cmd, "atdp"))
         {
-            retString.concat("ISO 15765-4 (CAN 11/500)");
+            switch (currentProtocol)
+            {
+            case 6:
+                retString.concat("ISO 15765-4 (CAN 11/500)");
+                break;
+            case 7:
+                retString.concat("ISO 15765-4 (CAN 29/500)");
+                break;
+            case 8:
+                retString.concat("ISO 15765-4 (CAN 11/250)");
+                break;
+            case 9:
+                retString.concat("ISO 15765-4 (CAN 29/250)");
+                break;
+            default:
+                retString.concat("UNKNOWN");
+                break;
+            }
         }
         else if (!strcmp(cmd, "atdpn"))
         {
@@ -604,8 +699,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             bDLC = false;
             bSpaces = true;
             bBatchedCommands = false;
-            currentProtocol = 6;
-            ecuAddress = 0x7DF;
+            setProtocol(6);
 
             retString.concat("OK");
         }
@@ -701,8 +795,17 @@ String ELM327Emu::processELMCmd(char *cmd)
     }
 
     CAN_FRAME outFrame;
+
+    if (!isCurrentProtocolSupported())
+    {
+        retString.concat("NO DATA");
+        retString.concat(lineEnding);
+        retString.concat(">");
+        return retString;
+    }
+
     outFrame.id = ecuAddress;
-    outFrame.extended = false;
+    outFrame.extended = isCurrentProtocolExtended();
     outFrame.length = 8;
     outFrame.rtr = 0;
     outFrame.data.uint8[3] = 0xAA;
@@ -898,7 +1001,15 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
         {
             flowControl.id = frame.id - 8;
         }
-        flowControl.extended = false;
+        else if (isCurrentProtocolExtended() &&
+                 frame.extended &&
+                 (frame.id & 0x1FFF0000) == 0x18DA0000)
+        {
+            uint8_t source = frame.id & 0xFF;
+            uint8_t target = (frame.id >> 8) & 0xFF;
+            flowControl.id = 0x18DA0000 | ((uint32_t)source << 8) | target;
+        }
+        flowControl.extended = isCurrentProtocolExtended();
         flowControl.length = 8;
         flowControl.rtr = 0;
         flowControl.data.uint8[0] = 0x30;

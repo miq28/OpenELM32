@@ -2,10 +2,68 @@ import can
 import time
 import math
 import random
+import argparse
 
-bus = can.interface.Bus(interface="slcan", channel="COM9", bitrate=500000)
+parser = argparse.ArgumentParser(description="OBD ECU simulator over SLCAN")
+parser.add_argument("--port", "--comport", default="COM9", help="SLCAN serial port")
+parser.add_argument("--channel", dest="port", help=argparse.SUPPRESS)
+parser.add_argument(
+    "--protocol",
+    type=int,
+    choices=[6, 7, 8, 9],
+    default=6,
+    help="ELM protocol: 6=CAN11/500, 7=CAN29/500, 8=CAN11/250, 9=CAN29/250",
+)
+parser.add_argument("--bitrate", type=int, help="override CAN bitrate")
+args = parser.parse_args()
 
-print("Realistic ECU simulator started")
+PROTOCOLS = {
+    6: {
+        "name": "ISO 15765-4 CAN 11/500",
+        "bitrate": 500000,
+        "extended": False,
+        "functional_request_id": 0x7DF,
+        "physical_request_ids": {0x7E0: 0x7E8, 0x7E1: 0x7E9},
+        "functional_response_ids": [0x7E8, 0x7E9],
+    },
+    7: {
+        "name": "ISO 15765-4 CAN 29/500",
+        "bitrate": 500000,
+        "extended": True,
+        "functional_request_id": 0x18DB33F1,
+        "physical_request_ids": {
+            0x18DA10F1: 0x18DAF110,
+            0x18DA11F1: 0x18DAF111,
+        },
+        "functional_response_ids": [0x18DAF110, 0x18DAF111],
+    },
+    8: {
+        "name": "ISO 15765-4 CAN 11/250",
+        "bitrate": 250000,
+        "extended": False,
+        "functional_request_id": 0x7DF,
+        "physical_request_ids": {0x7E0: 0x7E8, 0x7E1: 0x7E9},
+        "functional_response_ids": [0x7E8, 0x7E9],
+    },
+    9: {
+        "name": "ISO 15765-4 CAN 29/250",
+        "bitrate": 250000,
+        "extended": True,
+        "functional_request_id": 0x18DB33F1,
+        "physical_request_ids": {
+            0x18DA10F1: 0x18DAF110,
+            0x18DA11F1: 0x18DAF111,
+        },
+        "functional_response_ids": [0x18DAF110, 0x18DAF111],
+    },
+}
+
+protocol = PROTOCOLS[args.protocol]
+bitrate = args.bitrate or protocol["bitrate"]
+
+bus = can.interface.Bus(interface="slcan", channel=args.port, bitrate=bitrate)
+
+print(f"Realistic ECU simulator started: {protocol['name']} on {args.port} @ {bitrate}")
 
 start_time = time.time()
 
@@ -13,7 +71,11 @@ VIN = "JT2BG22K1V0123456"
 
 
 def build_msg(arbid, data):
-    return can.Message(arbitration_id=arbid, data=data, is_extended_id=False)
+    return can.Message(
+        arbitration_id=arbid,
+        data=data,
+        is_extended_id=protocol["extended"],
+    )
 
 
 def send_msg(msg, delay=None):
@@ -41,14 +103,15 @@ while True:
 
     print(f"RX: {msg}")
 
-    functional_request = msg.arbitration_id == 0x7DF
+    if msg.is_extended_id != protocol["extended"]:
+        continue
 
-    if msg.arbitration_id == 0x7DF:
-        response_id = 0x7E8
-    elif msg.arbitration_id == 0x7E0:
-        response_id = 0x7E8
-    elif msg.arbitration_id == 0x7E1:
-        response_id = 0x7E9
+    functional_request = msg.arbitration_id == protocol["functional_request_id"]
+
+    if functional_request:
+        response_id = protocol["functional_response_ids"][0]
+    elif msg.arbitration_id in protocol["physical_request_ids"]:
+        response_id = protocol["physical_request_ids"][msg.arbitration_id]
     else:
         continue
 
@@ -88,10 +151,12 @@ while True:
     if data[:3] == [0x02, 0x01, 0x00]:
 
         if functional_request:
+            primary_id = protocol["functional_response_ids"][0]
+            secondary_id = protocol["functional_response_ids"][1]
             send_functional_responses(
                 [
-                    (0x7E8, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00]),
-                    (0x7E9, [0x06, 0x41, 0x00, 0x98, 0x18, 0x00, 0x01, 0x00]),
+                    (primary_id, [0x06, 0x41, 0x00, 0x98, 0x19, 0x80, 0x11, 0x00]),
+                    (secondary_id, [0x06, 0x41, 0x00, 0x98, 0x18, 0x00, 0x01, 0x00]),
                 ]
             )
             continue

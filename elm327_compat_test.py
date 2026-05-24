@@ -88,6 +88,20 @@ DTC_SEQUENCE = [
     ("ATSH7E0", [r"OK"]),
 ]
 
+FREEZE_FRAME_SEQUENCE = [
+    ("ATH0", [r"OK"]),
+    ("ATS0", [r"OK"]),
+    ("ATSH7DF", [r"OK"]),
+    ("0101", [r"410181"]),
+    ("0200", [r"4200"]),
+    ("020200", [r"4202002304|42022304"]),
+    ("020400", [r"4204"]),
+    ("020500", [r"4205"]),
+    ("020C00", [r"420C"]),
+    ("020D00", [r"420D"]),
+    ("ATSH7E0", [r"OK"]),
+]
+
 MULTI_ECU_SEQUENCE = [
     ("ATH1", [r"OK"]),
     ("ATSH7DF", [r"OK"]),
@@ -289,6 +303,7 @@ def run_sequence(
     include_identity=False,
     include_obdlink=False,
     include_dtc=False,
+    include_freeze_frame=False,
     include_multi_ecu=False,
 ):
     failures = 0
@@ -311,6 +326,9 @@ def run_sequence(
 
     if include_dtc:
         sequence.extend(DTC_SEQUENCE)
+
+    if include_freeze_frame:
+        sequence.extend(FREEZE_FRAME_SEQUENCE)
 
     if include_multi_ecu:
         sequence.extend(MULTI_ECU_SEQUENCE)
@@ -343,6 +361,7 @@ async def run_ble_sequence(
     include_identity=False,
     include_obdlink=False,
     include_dtc=False,
+    include_freeze_frame=False,
     include_multi_ecu=False,
 ):
     failures = 0
@@ -365,6 +384,9 @@ async def run_ble_sequence(
 
     if include_dtc:
         sequence.extend(DTC_SEQUENCE)
+
+    if include_freeze_frame:
+        sequence.extend(FREEZE_FRAME_SEQUENCE)
 
     if include_multi_ecu:
         sequence.extend(MULTI_ECU_SEQUENCE)
@@ -406,6 +428,7 @@ def main(argv):
     serial_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
     serial_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     serial_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    serial_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     serial_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
     tcp_parser = subparsers.add_parser("tcp")
@@ -417,6 +440,7 @@ def main(argv):
     tcp_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
     tcp_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     tcp_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    tcp_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     tcp_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
     ble_parser = subparsers.add_parser("ble")
@@ -428,6 +452,7 @@ def main(argv):
     ble_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
     ble_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     ble_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    ble_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     ble_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
     parser.add_argument("--timeout", type=float, default=1.5)
@@ -446,6 +471,7 @@ def main(argv):
                 args.identity,
                 args.obdlink,
                 args.dtc,
+                args.freeze_frame,
                 args.multi_ecu,
             )
         )
@@ -466,6 +492,7 @@ def main(argv):
             args.identity,
             args.obdlink,
             args.dtc,
+            args.freeze_frame,
             args.multi_ecu,
         )
     finally:

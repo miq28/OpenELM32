@@ -184,7 +184,7 @@ while True:
 
     elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x02:
 
-        resp = build_msg(response_id, [0x04, 0x42, 0x02, *DTC_P2304, 0x00, 0x00, 0x00])
+        resp = build_msg(response_id, [0x05, 0x42, 0x02, 0x00, *DTC_P2304, 0x00, 0x00])
 
     elif len(data) >= 3 and data[1] == 0x02 and data[2] == 0x04:
 
@@ -319,7 +319,7 @@ while True:
 
     elif data[:3] == [0x02, 0x01, 0x01]:
 
-        resp = build_msg(response_id, [0x06, 0x41, 0x01, 0x00, 0x07, 0x65, 0x04, 0x00])
+        resp = build_msg(response_id, [0x06, 0x41, 0x01, 0x81, 0x07, 0x65, 0x04, 0x00])
 
     # --------------------------------------------
     # MODE 01 PID 10 - MAF air flow rate

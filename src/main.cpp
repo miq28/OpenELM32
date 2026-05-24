@@ -204,11 +204,6 @@ void checkESPBoard()
     }
 }
 
-// on the S3 we want the default pins to be different
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-MCP2517FD CAN1(10, 3);
-#endif
-
 byte i = 0;
 
 uint32_t lastFlushMicros = 0;

@@ -16,6 +16,14 @@ public:
                       connInfo.getIdAddress().toString().c_str(),
                       connInfo.getConnHandle());
         consolePrintf("[BLE] Connection details:\n%s\n", connInfo.toString().c_str());
+
+        int rc = 0;
+        if (!connInfo.isEncrypted() &&
+            !NimBLEDevice::startSecurity(connInfo.getConnHandle(), &rc)) {
+            consolePrintf("[BLE] Failed to start pairing/security: %d (%s)\n",
+                          rc,
+                          NimBLEUtils::returnCodeToString(rc));
+        }
     }
 
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
@@ -32,6 +40,15 @@ public:
 
     void onMTUChange(uint16_t mtu, NimBLEConnInfo& connInfo) override {
         consolePrintf("[BLE] MTU updated: %u for handle: %u\n", mtu, connInfo.getConnHandle());
+    }
+
+    void onAuthenticationComplete(NimBLEConnInfo& connInfo) override {
+        consolePrintf("[BLE] Authentication complete: bonded=%s encrypted=%s authenticated=%s keySize=%u address=%s\n",
+                      connInfo.isBonded() ? "yes" : "no",
+                      connInfo.isEncrypted() ? "yes" : "no",
+                      connInfo.isAuthenticated() ? "yes" : "no",
+                      connInfo.getSecKeySize(),
+                      connInfo.getAddress().toString().c_str());
     }
 
 private:
@@ -116,9 +133,12 @@ void BleElm327Server::begin() {
 
     NimBLEDevice::init(deviceName);
     NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
-    NimBLEDevice::setSecurityAuth(false, false, false);
+    NimBLEDevice::setSecurityAuth(true, false, true);
+    NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
+    NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
     NimBLEDevice::setMTU(517);
+    consolePrintf("[BLE] Stored bonds: %u\n", NimBLEDevice::getNumBonds());
 
     NimBLEServer* server = NimBLEDevice::createServer();
     server->setCallbacks(serverCallbacks);

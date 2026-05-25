@@ -16,6 +16,9 @@ public:
                       connInfo.getAddress().toString().c_str(),
                       connInfo.getIdAddress().toString().c_str(),
                       connInfo.getConnHandle());
+        consolePrintf("[BLE] Connected clients: %u/%u\n",
+                      pServer->getConnectedCount(),
+                      CONFIG_BT_NIMBLE_MAX_CONNECTIONS);
         consolePrintf("[BLE] Connection details:\n%s\n", connInfo.toString().c_str());
 
         int rc = 0;
@@ -25,18 +28,33 @@ public:
                           rc,
                           NimBLEUtils::returnCodeToString(rc));
         }
+
+        if (pServer->getConnectedCount() < CONFIG_BT_NIMBLE_MAX_CONNECTIONS) {
+            if (NimBLEDevice::startAdvertising()) {
+                consolePrintln("[BLE] Advertising kept active for another client");
+            } else {
+                consolePrintln("[BLE] Failed to keep advertising active after connect");
+            }
+        }
     }
 
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
-        owner.clientConnected = false;
+        owner.clientConnected = pServer->getConnectedCount() > 0;
         owner.obdlinkNotifySubscribed = false;
         owner.genericSerialSubscribed = false;
         owner.peerMtu = 23;
-        consolePrintf("[BLE] Client disconnected. Reason: %d (%s). Restarting advertising...\n",
+        consolePrintf("[BLE] Client disconnected. Reason: %d (%s). Connected clients: %u/%u\n",
                       reason,
-                      NimBLEUtils::returnCodeToString(reason));
-        if (!NimBLEDevice::startAdvertising()) {
-            consolePrintln("[BLE] Failed to restart advertising");
+                      NimBLEUtils::returnCodeToString(reason),
+                      pServer->getConnectedCount(),
+                      CONFIG_BT_NIMBLE_MAX_CONNECTIONS);
+
+        if (pServer->getConnectedCount() < CONFIG_BT_NIMBLE_MAX_CONNECTIONS) {
+            if (NimBLEDevice::startAdvertising()) {
+                consolePrintln("[BLE] Advertising active");
+            } else {
+                consolePrintln("[BLE] Failed to restart advertising");
+            }
         }
     }
 

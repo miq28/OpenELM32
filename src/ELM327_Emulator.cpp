@@ -41,6 +41,65 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static uint32_t elmTxnCounter = 0;
 
+static String escapeElmLogText(const char *data, size_t len)
+{
+    String out;
+    char buff[5];
+
+    for (size_t i = 0; i < len; i++)
+    {
+        uint8_t value = (uint8_t)data[i];
+
+        if (value == '\r')
+        {
+            out += "\\r";
+        }
+        else if (value == '\n')
+        {
+            out += "\\n";
+        }
+        else if (value == '\t')
+        {
+            out += "\\t";
+        }
+        else if (value >= 0x20 && value <= 0x7E)
+        {
+            out += (char)value;
+        }
+        else
+        {
+            sprintf(buff, "\\x%02X", value);
+            out += buff;
+        }
+    }
+
+    return out;
+}
+
+static String escapeElmLogText(const String &data)
+{
+    return escapeElmLogText(data.c_str(), data.length());
+}
+
+static String formatCanFrameData(const CAN_FRAME &frame)
+{
+    String out;
+    char buff[4];
+
+    for (int i = 0; i < frame.length; i++)
+    {
+        if (i > 0)
+        {
+            out += ' ';
+        }
+
+        sprintf(buff, "%02X", frame.data.uint8[i]);
+        out += buff;
+    }
+
+    return out;
+}
+
 static bool isHexDigitString(const char *value)
 {
     if (value == nullptr || *value == 0)
@@ -179,6 +238,7 @@ void ELM327Emu::loop()
                 multiFrameActive = false;
                 pendingVoltageRequest = false;
                 waitingForReply = false;
+                DEBUG("[ELM %lu] APP TX: NO DATA\\r\\n>\n", activeTxn);
                 txBuffer.sendString("NO DATA\r\n>");
                 sendTxBuffer();
             }
@@ -195,6 +255,7 @@ void ELM327Emu::loop()
                 waitingForReply = false;
                 pendingVoltageRequest = false;
 
+                DEBUG("[ELM %lu] APP TX: NO DATA\\r\\n>\n", activeTxn);
                 txBuffer.sendString("NO DATA\r\n>");
 
                 sendTxBuffer();
@@ -207,13 +268,10 @@ void ELM327Emu::flushPendingReply()
 {
     waitingForReply = false;
 
-    //=== OBD Reply Path
-    DEBUG("[%lu ms][ELM->APP %lu TX] %s>\n",
-          millis(),
+    String response = replyAccumulator + ">";
+    DEBUG("[ELM %lu] APP TX: %s\n",
           activeTxn,
-          replyAccumulator.c_str());
-
-    DEBUG("====================================================\n\n");
+          escapeElmLogText(response).c_str());
 
     txBuffer.sendString(replyAccumulator);
     txBuffer.sendString(">");
@@ -332,7 +390,7 @@ void ELM327Emu::processCmd()
 
             if (retString.length() > 0)
             {
-                DEBUG("[ELM->APP TX] %s\n", retString.c_str());
+                DEBUG("[ELM->APP TX] %s\n", escapeElmLogText(retString).c_str());
                 txBuffer.sendString(retString);
                 sendTxBuffer();
             }
@@ -753,22 +811,12 @@ String ELM327Emu::processELMCmd(char *cmd)
                 uint32_t txn = ++elmTxnCounter;
                 activeTxn = txn;
 
-                DEBUG("\n");
-                DEBUG("====================================================\n");
-                DEBUG("[%lu ms][APP->ELM %lu] CMD:%s -> 0142\n", millis(), txn, cmd);
-                DEBUG("[%lu ms][ELM->CAN %lu TX] id:%03X len:%u data:",
-                      millis(),
+                DEBUG("[ELM %lu] CAN TX: cmd:%s->0142 id:%03X len:%u data:%s\n",
                       txn,
+                      cmd,
                       outFrame.id,
-                      outFrame.length);
-
-                for (int i = 0; i < outFrame.length; i++)
-                {
-                    DEBUG(" %02X", outFrame.data.uint8[i]);
-                }
-
-                DEBUG("\n");
-                DEBUG("----------------------------------------------------\n");
+                      outFrame.length,
+                      formatCanFrameData(outFrame).c_str());
 
                 canManager.sendFrame(canBuses[sendingBus], outFrame);
 
@@ -927,22 +975,12 @@ String ELM327Emu::processELMCmd(char *cmd)
 
     activeTxn = txn;
 
-    DEBUG("\n");
-    DEBUG("====================================================\n");
-    DEBUG("[%lu ms][APP->ELM %lu] CMD:%s\n", millis(), txn, cmd);
-    DEBUG("[%lu ms][ELM->CAN %lu TX] id:%03X len:%u data:",
-          millis(),
+    DEBUG("[ELM %lu] CAN TX: cmd:%s id:%03X len:%u data:%s\n",
           txn,
+          cmd,
           outFrame.id,
-          outFrame.length);
-
-    for (int i = 0; i < outFrame.length; i++)
-    {
-        DEBUG(" %02X", outFrame.data.uint8[i]);
-    }
-
-    DEBUG("\n");
-    DEBUG("----------------------------------------------------\n");
+          outFrame.length,
+          formatCanFrameData(outFrame).c_str());
 
     canManager.sendFrame(canBuses[sendingBus], outFrame);
 
@@ -1021,20 +1059,11 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
 
     gotReply = true;
 
-    // === RX debug
-    DEBUG("[%lu ms][CAN->ELM %lu RX] id:%03X len:%u data:",
-          millis(),
+    DEBUG("[ELM %lu] CAN RX: id:%03X len:%u data:%s\n",
           activeTxn,
           frame.id,
-          frame.length);
-
-    for (int i = 0; i < frame.length; i++)
-    {
-        DEBUG(" %02X", frame.data.uint8[i]);
-    }
-
-    DEBUG("\n");
-    DEBUG("====================================================\n\n");
+          frame.length,
+          formatCanFrameData(frame).c_str());
 
     if (pendingVoltageRequest)
     {

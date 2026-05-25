@@ -219,7 +219,6 @@ void BleElm327Server::notifyResponse(const String& response) {
         consolePrintln("[BLE] notify skipped: no subscribed ELM characteristic");
     }
 
-    consolePrintf("[ELM] Response: %s\n", printable(response).c_str());
 }
 
 void BleElm327Server::notifyChunked(NimBLECharacteristic* characteristic,

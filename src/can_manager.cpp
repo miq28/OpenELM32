@@ -339,7 +339,7 @@ void CANManager::loop()
             }
         }
 
-        if (!elmEmulator.isWaitingForReply())
+        if (settings.canStatsOutput && !elmEmulator.isWaitingForReply())
         {
             DEBUG("[CAN STAT] in:%lu fps out:%lu fps usbDrop:%lu/s tcpDrop:%lu/s rxqovf:%lu/s wifi:%u tx:%lu KB/s heap:%u at:%u up:%02lu:%02lu:%02lu\n",
                   fpsIn,

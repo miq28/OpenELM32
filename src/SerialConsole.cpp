@@ -57,6 +57,7 @@ static void applyObdRuntimeProfile()
 {
     settings.runtimeProfile = RUNTIME_PROFILE_OBD;
     settings.consoleCANOutput = false;
+    settings.canStatsOutput = false;
     canManager.setSendToConsole(false);
     debug_enabled = true;
     debug_to_serial = false;
@@ -66,6 +67,7 @@ static void applyObdRuntimeProfile()
 static void applyDevRuntimeProfile()
 {
     settings.runtimeProfile = RUNTIME_PROFILE_DEV;
+    settings.canStatsOutput = true;
     debug_enabled = true;
     debug_to_serial = false;
     debug_to_rs485 = true;
@@ -75,10 +77,12 @@ static void printRuntimeStatus()
 {
     Logger::console("Runtime status:");
     Logger::console("  PROFILE=%s", settings.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
-    Logger::console("  APP transport: USB ELM=%s, USB baud=%u",
+    Logger::console("  USB ELM=%s SERBAUD=%lu",
                     settings.enableElmSerial ? "ON" : "OFF",
-                    settings.serialBaud);
-    Logger::console("  CONSOLECAN=%i", settings.consoleCANOutput ? 1 : 0);
+                    (unsigned long)settings.serialBaud);
+    Logger::console("  CONSOLECAN=%i CANSTAT=%i",
+                    settings.consoleCANOutput ? 1 : 0,
+                    settings.canStatsOutput ? 1 : 0);
     Logger::console("  DEBUG=%i DEBUGSER=%i DEBUG485=%i",
                     debug_enabled ? 1 : 0,
                     debug_to_serial ? 1 : 0,
@@ -144,8 +148,9 @@ void SerialConsole::printMenu()
     // consolePrintln();
 
     Logger::console("BINSERIAL=%i - Enable/Disable Binary Sending of CANBus Frames to Serial (0=Dis, 1=En)", settings.useBinarySerialComm);
-    Logger::console("SERBAUD=%u - Set USB serial baud (115200, 1000000, etc)", settings.serialBaud);
+    Logger::console("SERBAUD=%lu - Set USB serial baud (115200, 1000000, etc)", (unsigned long)settings.serialBaud);
     Logger::console("CONSOLECAN=%i - Enable/Disable CAN frame output to USB serial (0=Dis, 1=En)", settings.consoleCANOutput);
+    Logger::console("CANSTAT=%i - Enable/Disable periodic CAN stats output (0=Dis, 1=En)", settings.canStatsOutput);
     consolePrintln();
 
     Logger::console("BTNAME=%s - Set advertised Bluetooth name", settings.btName);
@@ -606,6 +611,15 @@ void SerialConsole::handleConfigCmd()
 
         writeEEPROM = true;
     }
+    else if (cmdString == String("CANSTAT"))
+    {
+        settings.canStatsOutput = (newValue != 0);
+
+        Logger::console("Periodic CAN stats %s",
+                        settings.canStatsOutput ? "ENABLED" : "DISABLED");
+
+        writeEEPROM = true;
+    }
     else if (cmdString == String("PROFILE"))
     {
         String profile = String(newString);
@@ -820,6 +834,7 @@ void SerialConsole::handleConfigCmd()
         prefs.putBool("enableLawicel", settings.enableLawicel);
         prefs.putBool("elmSerial", settings.enableElmSerial);
         prefs.putBool("consoleCAN", settings.consoleCANOutput);
+        prefs.putBool("canStats", settings.canStatsOutput);
 
         prefs.putBool("dbg_en", debug_enabled);
         prefs.putBool("dbg_ser", debug_to_serial);

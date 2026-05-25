@@ -100,6 +100,9 @@ void printPrefs()
     consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
     consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", false));
     consolePrintf("consoleCAN=%d\n", prefs.getBool("consoleCAN", true));
+    consolePrintf("canStats=%d\n",
+                  prefs.getBool("canStats",
+                                prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV) != RUNTIME_PROFILE_OBD));
     consolePrintf("sendingBus=%d\n", prefs.getInt("sendingBus", 0));
     consolePrintf("btname=%s\n", prefs.getString("btname", "").c_str());
     consolePrintf("dbg_en=%d\n", prefs.getBool("dbg_en", false));
@@ -346,6 +349,8 @@ void loadSettings()
     settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
     settings.enableElmSerial = prefs.getBool("elmSerial", false);
     settings.consoleCANOutput = prefs.getBool("consoleCAN", true);
+    settings.canStatsOutput = prefs.getBool("canStats",
+                                            settings.runtimeProfile != RUNTIME_PROFILE_OBD);
     settings.sendingBus = prefs.getInt("sendingBus", 0);
 
     if (prefs.getString("btname", settings.btName, 32) == 0)

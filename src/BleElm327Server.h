@@ -8,11 +8,11 @@
 class BleElm327Server {
 public:
     BleElm327Server(ELM327Emu& emulator,
-                    const char* modelName = "OBDLink CX",
+                    const char* deviceName = "OBDLink CX",
                     const char* manufacturer = "OBD Solutions LLC",
                     const char* firmwareRevision = "STN2310 v5.6.19");
 
-    void begin(const char* advertisedName = nullptr);
+    void begin();
     void notifyResponse(const String& response);
     static BleElm327Server* getInstance();
 
@@ -22,7 +22,7 @@ private:
     class DeviceInfoCallbacks;
 
     ELM327Emu& emulator;
-    const char* modelName;
+    const char* deviceName;
     const char* manufacturer;
     const char* firmwareRevision;
 

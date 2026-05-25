@@ -563,7 +563,7 @@ void setup()
     delay(100); // just to make sure all the debug output is done before we start doing things that might mess with it
 
     consolePrintln("Starting BLE");
-    bleElm327Server.begin(deviceName);
+    bleElm327Server.begin();
 
     wifiManager.setup();
 

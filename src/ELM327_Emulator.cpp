@@ -67,6 +67,8 @@ ELM327Emu::ELM327Emu()
 {
     tickCounter = 0;
     ibWritePtr = 0;
+    rawWritePtr = 0;
+    incomingPrintable[0] = 0;
     ecuAddress = 0x7DF;
     mClient = 0;
     activeTransport = TRANSPORT_BLE;
@@ -305,7 +307,7 @@ void ELM327Emu::processCmd()
         flushPendingReply();
     }
 
-    DEBUG("[APP->ELM RX] %s\n", incomingBuffer);
+    DEBUG("[APP->ELM RX] %s\n", incomingPrintable[0] ? incomingPrintable : incomingBuffer);
 
     char *cmd = incomingBuffer;
 
@@ -1334,17 +1336,23 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
 
 void ELM327Emu::processIncomingByte(uint8_t incoming)
 {
+    captureIncomingPrintable(incoming);
+
     if (incoming == 13 || incoming == 10 || ibWritePtr > 126)
     {
         if (ibWritePtr == 0)
         {
+            rawWritePtr = 0;
+            incomingPrintable[0] = 0;
             return;
         }
 
         incomingBuffer[ibWritePtr] = 0;
         ibWritePtr = 0;
+        rawWritePtr = 0;
 
         processCmd();
+        incomingPrintable[0] = 0;
         return;
     }
 
@@ -1360,4 +1368,39 @@ void ELM327Emu::processIncomingByte(uint8_t incoming)
     }
 
     incomingBuffer[ibWritePtr++] = (char)tolower((unsigned char)incoming);
+}
+
+void ELM327Emu::captureIncomingPrintable(uint8_t incoming)
+{
+    if (rawWritePtr >= (int)(sizeof(incomingPrintable) - 5))
+    {
+        return;
+    }
+
+    if (incoming == '\r')
+    {
+        incomingPrintable[rawWritePtr++] = '\\';
+        incomingPrintable[rawWritePtr++] = 'r';
+    }
+    else if (incoming == '\n')
+    {
+        incomingPrintable[rawWritePtr++] = '\\';
+        incomingPrintable[rawWritePtr++] = 'n';
+    }
+    else if (incoming == '\t')
+    {
+        incomingPrintable[rawWritePtr++] = '\\';
+        incomingPrintable[rawWritePtr++] = 't';
+    }
+    else if (incoming >= 0x20 && incoming <= 0x7E)
+    {
+        incomingPrintable[rawWritePtr++] = (char)incoming;
+    }
+    else
+    {
+        sprintf(&incomingPrintable[rawWritePtr], "\\x%02X", incoming);
+        rawWritePtr += 4;
+    }
+
+    incomingPrintable[rawWritePtr] = 0;
 }

@@ -630,15 +630,6 @@ static void processElmSerialByte(uint8_t inByte)
     static char controlBuffer[128];
     static uint8_t controlLength = 0;
 
-    if (inByte >= 0x20 && inByte <= 0x7E)
-    {
-        DEBUG("[USB ELM RX RAW] %02X '%c'\n", inByte, inByte);
-    }
-    else
-    {
-        DEBUG("[USB ELM RX RAW] %02X\n", inByte);
-    }
-
     if (inByte == '\n' && controlLength == 0)
     {
         return;

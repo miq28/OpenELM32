@@ -84,6 +84,7 @@ private:
     ActiveTransport activeTransport;
     CommBuffer txBuffer;
     char incomingBuffer[128]; // storage for one incoming line
+    char incomingPrintable[256];
     char buffer[30];          // a buffer for various string conversions
     bool bLineFeed;           // should we use line feeds?
     bool bHeader;             // should we produce a header?
@@ -96,6 +97,7 @@ private:
     uint32_t ecuAddress;
     int tickCounter;
     int ibWritePtr;
+    int rawWritePtr;
     int currReply;
     int sendingBus;
     uint8_t currentProtocol;
@@ -109,6 +111,7 @@ private:
     bool isCurrentProtocolExtended() const;
     uint32_t currentProtocolBitrate() const;
     uint32_t currentProtocolFunctionalId() const;
+    void captureIncomingPrintable(uint8_t incoming);
 
     bool waitingForReply;
     uint32_t requestStartTime;

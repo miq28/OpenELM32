@@ -516,16 +516,17 @@ void loadSettings()
 
 void setup()
 {
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    // for the ESP32S3 it will block if nothing is connected to USB and that can slow down the program
-    // if nothing is connected. But, you can't set 0 or writing rapidly to USB will lose data. It needs
-    // some sort of timeout but I'm not sure exactly how much is needed or if there is a better way
-    // to deal with this issue.
-    Serial.setTxTimeoutMs(2);
-#endif
     Serial.begin(DEFAULT_SERIAL_BAUD); // for production
     RS485.begin(1000000);
-    debug_to_serial = true;
+
+    prefs.begin(PREF_NAME, true);
+    bool quietUsbBoot =
+        prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV) == RUNTIME_PROFILE_OBD ||
+        prefs.getBool("elmSerial", false);
+    prefs.end();
+
+    debug_to_serial = !quietUsbBoot;
+    debug_to_rs485 = true;
     consolePrintf("\n=== BOOT ===\n");
     esp_reset_reason_t r = esp_reset_reason();
     consolePrintf("Reset reason=%s (%d)\n",
@@ -629,12 +630,21 @@ static void processElmSerialByte(uint8_t inByte)
     static char controlBuffer[128];
     static uint8_t controlLength = 0;
 
-    if (inByte == '\n')
+    if (inByte >= 0x20 && inByte <= 0x7E)
+    {
+        DEBUG("[USB ELM RX RAW] %02X '%c'\n", inByte, inByte);
+    }
+    else
+    {
+        DEBUG("[USB ELM RX RAW] %02X\n", inByte);
+    }
+
+    if (inByte == '\n' && controlLength == 0)
     {
         return;
     }
 
-    if (inByte == '\r' || controlLength >= (sizeof(controlBuffer) - 1))
+    if (inByte == '\r' || inByte == '\n' || controlLength >= (sizeof(controlBuffer) - 1))
     {
         controlBuffer[controlLength] = 0;
 

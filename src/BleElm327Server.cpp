@@ -203,11 +203,19 @@ void BleElm327Server::begin() {
 void BleElm327Server::notifyResponse(const String& response) {
     lastResponse = response;
 
+    bool notified = false;
+
     if (obdlinkNotifySubscribed) {
         notifyChunked(obdlinkNotifyChar, response, "FFF1");
-    } else if (genericSerialSubscribed) {
+        notified = true;
+    }
+
+    if (genericSerialSubscribed) {
         notifyChunked(genericSerialChar, response, "FFE1");
-    } else {
+        notified = true;
+    }
+
+    if (!notified) {
         consolePrintln("[BLE] notify skipped: no subscribed ELM characteristic");
     }
 

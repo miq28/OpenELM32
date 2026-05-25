@@ -1,5 +1,6 @@
 #include "rs485.h"
 #include "config.h"
+#include "debug.h"
 #include <stdarg.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -117,7 +118,7 @@ void RS485Port::txTask(void *param)
         if (w < minWatermark)
         {
             minWatermark = w;
-            Serial.printf("TX STACK MIN: %u\n", w);
+            DEBUG("TX STACK MIN: %u\n", w);
         }
 
         if (xQueueReceive(txQueue, &item, portMAX_DELAY))

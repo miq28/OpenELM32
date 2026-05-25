@@ -972,6 +972,55 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     DEBUG("\n");
     DEBUG("====================================================\n\n");
 
+    auto appendRawIsoTpLine = [&](const CAN_FRAME &replyFrame,
+                                  uint8_t byteCount) {
+        char buff[32];
+
+        if (bHeader || bMonitorMode)
+        {
+            if (bSpaces)
+            {
+                sprintf(buff, "%03X ", replyFrame.id);
+            }
+            else
+            {
+                sprintf(buff, "%03X", replyFrame.id);
+            }
+
+            replyAccumulator += buff;
+        }
+
+        for (uint8_t i = 0; i < byteCount && i < replyFrame.length; i++)
+        {
+            if (bSpaces)
+            {
+                sprintf(buff, "%02X ", replyFrame.data.uint8[i]);
+            }
+            else
+            {
+                sprintf(buff, "%02X", replyFrame.data.uint8[i]);
+            }
+
+            replyAccumulator += buff;
+        }
+
+        if (bSpaces &&
+            replyAccumulator.length() > 0 &&
+            replyAccumulator.endsWith(" "))
+        {
+            replyAccumulator.remove(replyAccumulator.length() - 1);
+        }
+
+        if (bLineFeed)
+        {
+            replyAccumulator += "\r\n";
+        }
+        else
+        {
+            replyAccumulator += "\r";
+        }
+    };
+
     if (pciType == 0x10)
     {
         uint16_t totalLen =
@@ -1024,6 +1073,12 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
 
         lastReplyTime = millis();
         gotReply = true;
+
+        if (bHeader || bMonitorMode)
+        {
+            appendRawIsoTpLine(frame, 2 + firstPayloadLen);
+        }
+
         return;
     }
 
@@ -1043,15 +1098,22 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
 
         multiFrameNextSeq = (multiFrameNextSeq + 1) & 0x0F;
 
+        uint8_t copiedBytes = 0;
         for (uint8_t i = 1;
              i < frame.length && multiFrameReceivedLen < multiFrameExpectedLen;
              i++)
         {
             multiFramePayload[multiFrameReceivedLen++] = frame.data.uint8[i];
+            copiedBytes++;
         }
 
         lastReplyTime = millis();
         gotReply = true;
+
+        if (bHeader || bMonitorMode)
+        {
+            appendRawIsoTpLine(frame, 1 + copiedBytes);
+        }
 
         if (multiFrameReceivedLen < multiFrameExpectedLen)
         {
@@ -1059,6 +1121,11 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
         }
 
         multiFrameActive = false;
+
+        if (bHeader || bMonitorMode)
+        {
+            return;
+        }
 
         frame.id = multiFrameReplyId;
         frame.length = 8;

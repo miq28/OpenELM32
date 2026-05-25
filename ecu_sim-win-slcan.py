@@ -336,6 +336,29 @@ while True:
         )
 
     # --------------------------------------------
+    # MODE 01 PID 42 - Control module voltage
+    # formula = ((A * 256) + B) / 1000 V
+    # --------------------------------------------
+
+    elif data[:3] == [0x02, 0x01, 0x42]:
+
+        millivolts = 14088
+
+        resp = build_msg(
+            response_id,
+            [
+                0x04,
+                0x41,
+                0x42,
+                (millivolts >> 8) & 0xFF,
+                millivolts & 0xFF,
+                0x00,
+                0x00,
+                0x00,
+            ],
+        )
+
+    # --------------------------------------------
     # MODE 01 PID 1C - OBD standards this vehicle conforms to
     # 0x06 = EOBD + OBD-II
     # --------------------------------------------

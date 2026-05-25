@@ -116,6 +116,7 @@ private:
 
     uint8_t pendingMode;
     uint16_t pendingPID;
+    bool pendingVoltageRequest;
 
     bool gotReply;
 

@@ -86,6 +86,7 @@ ELM327Emu::ELM327Emu()
 
     pendingMode = 0;
     pendingPID = 0;
+    pendingVoltageRequest = false;
 
     gotReply = false;
 
@@ -174,6 +175,7 @@ void ELM327Emu::loop()
             if (multiFrameActive && (now - lastReplyTime) > 200)
             {
                 multiFrameActive = false;
+                pendingVoltageRequest = false;
                 waitingForReply = false;
                 txBuffer.sendString("NO DATA\r\n>");
                 sendTxBuffer();
@@ -189,6 +191,7 @@ void ELM327Emu::loop()
             if ((now - requestStartTime) > 200)
             {
                 waitingForReply = false;
+                pendingVoltageRequest = false;
 
                 txBuffer.sendString("NO DATA\r\n>");
 
@@ -725,7 +728,65 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "atrv"))
         {
-            retString.concat("14.2V");
+            if (!isCurrentProtocolSupported())
+            {
+                retString.concat("NO DATA");
+            }
+            else
+            {
+                CAN_FRAME outFrame;
+                outFrame.id = currentProtocolFunctionalId();
+                outFrame.extended = isCurrentProtocolExtended();
+                outFrame.length = 8;
+                outFrame.rtr = 0;
+                outFrame.data.uint8[0] = 0x02;
+                outFrame.data.uint8[1] = 0x01;
+                outFrame.data.uint8[2] = 0x42;
+                outFrame.data.uint8[3] = 0xAA;
+                outFrame.data.uint8[4] = 0xAA;
+                outFrame.data.uint8[5] = 0xAA;
+                outFrame.data.uint8[6] = 0xAA;
+                outFrame.data.uint8[7] = 0xAA;
+
+                uint32_t txn = ++elmTxnCounter;
+                activeTxn = txn;
+
+                DEBUG("\n");
+                DEBUG("====================================================\n");
+                DEBUG("[%lu ms][APP->ELM %lu] CMD:%s -> 0142\n", millis(), txn, cmd);
+                DEBUG("[%lu ms][ELM->CAN %lu TX] id:%03X len:%u data:",
+                      millis(),
+                      txn,
+                      outFrame.id,
+                      outFrame.length);
+
+                for (int i = 0; i < outFrame.length; i++)
+                {
+                    DEBUG(" %02X", outFrame.data.uint8[i]);
+                }
+
+                DEBUG("\n");
+                DEBUG("----------------------------------------------------\n");
+
+                canManager.sendFrame(canBuses[sendingBus], outFrame);
+
+                gotReply = false;
+                replyAccumulator = "";
+                multiFrameActive = false;
+                multiFrameExpectedLen = 0;
+                multiFrameReceivedLen = 0;
+                multiFrameNextSeq = 1;
+                multiFrameReplyId = 0;
+
+                waitingForReply = true;
+                requestStartTime = millis();
+
+                pendingMode = 0x01;
+                pendingPID = 0x42;
+                pendingVoltageRequest = true;
+
+                return "";
+            }
         }
         else if (!strncmp(cmd, "atcaf", 5))
         {
@@ -885,6 +946,7 @@ String ELM327Emu::processELMCmd(char *cmd)
 
     gotReply = false;
     replyAccumulator = "";
+    pendingVoltageRequest = false;
     multiFrameActive = false;
     multiFrameExpectedLen = 0;
     multiFrameReceivedLen = 0;
@@ -971,6 +1033,49 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
 
     DEBUG("\n");
     DEBUG("====================================================\n\n");
+
+    if (pendingVoltageRequest)
+    {
+        pendingVoltageRequest = false;
+
+        uint8_t payloadLen = frame.data.uint8[0];
+        const uint8_t *payload = &frame.data.uint8[1];
+
+        if (positive &&
+            pciType == 0x00 &&
+            payloadLen >= 4 &&
+            payload[0] == 0x41 &&
+            payload[1] == 0x42)
+        {
+            uint16_t millivolts =
+                ((uint16_t)payload[2] << 8) |
+                payload[3];
+            uint16_t decivolts = (millivolts + 50) / 100;
+
+            char voltageText[16];
+            sprintf(voltageText,
+                    "%u.%uV",
+                    decivolts / 10,
+                    decivolts % 10);
+
+            replyAccumulator = voltageText;
+        }
+        else
+        {
+            replyAccumulator = "NO DATA";
+        }
+
+        if (bLineFeed)
+        {
+            replyAccumulator += "\r\n";
+        }
+        else
+        {
+            replyAccumulator += "\r";
+        }
+
+        return;
+    }
 
     auto appendRawIsoTpLine = [&](const CAN_FRAME &replyFrame,
                                   uint8_t byteCount) {

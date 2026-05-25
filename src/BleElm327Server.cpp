@@ -135,24 +135,25 @@ public:
 };
 
 BleElm327Server::BleElm327Server(ELM327Emu& emulator,
-                                 const char* deviceName,
+                                 const char* modelName,
                                  const char* manufacturer,
                                  const char* firmwareRevision)
     : emulator(emulator),
-      deviceName(deviceName),
+      modelName(modelName),
       manufacturer(manufacturer),
       firmwareRevision(firmwareRevision),
       lastResponse("ELM327 v1.5\r\r>") {
 }
 
-void BleElm327Server::begin() {
+void BleElm327Server::begin(const char* advertisedName) {
     g_bleServer = this;
+    const char* bleName = advertisedName && advertisedName[0] ? advertisedName : modelName;
 
     serverCallbacks = new ServerCallbacks(*this);
     serialCallbacks = new SerialCallbacks(*this);
     deviceInfoCallbacks = new DeviceInfoCallbacks();
 
-    NimBLEDevice::init(deviceName);
+    NimBLEDevice::init(modelName);
     NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
     NimBLEDevice::setSecurityAuth(true, false, true);
     NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
@@ -166,7 +167,7 @@ void BleElm327Server::begin() {
 
     NimBLEService* deviceInfo = server->createService("180A");
     addDeviceInfoCharacteristic(deviceInfo, "2A29", manufacturer);
-    addDeviceInfoCharacteristic(deviceInfo, "2A24", deviceName);
+    addDeviceInfoCharacteristic(deviceInfo, "2A24", modelName);
     addDeviceInfoCharacteristic(deviceInfo, "2A25", "231012345678");
     addDeviceInfoCharacteristic(deviceInfo, "2A26", firmwareRevision);
     addDeviceInfoCharacteristic(deviceInfo, "2A27", "r1.0.0");
@@ -204,7 +205,7 @@ void BleElm327Server::begin() {
     advData.setCompleteServices16({NimBLEUUID((uint16_t)0xFFF0), NimBLEUUID((uint16_t)0xFFE0)});
 
     NimBLEAdvertisementData scanData;
-    scanData.setName(deviceName);
+    scanData.setName(bleName);
 
     advertising->setAdvertisementData(advData);
     advertising->setScanResponseData(scanData);
@@ -212,7 +213,7 @@ void BleElm327Server::begin() {
     advertising->setConnectableMode(BLE_GAP_CONN_MODE_UND);
 
     if (advertising->start(0)) {
-        consolePrintf("[BOOT] Advertising as %s\n", deviceName);
+        consolePrintf("[BOOT] Advertising as %s (model %s)\n", bleName, modelName);
     } else {
         consolePrintln("[BOOT] Failed to start advertising");
     }

@@ -100,6 +100,67 @@ static String formatCanFrameData(const CAN_FRAME &frame)
     return out;
 }
 
+static void appendSuffix(String &out, const char *source, uint8_t count)
+{
+    size_t sourceLen = strlen(source);
+    if (count > sourceLen)
+    {
+        count = sourceLen;
+    }
+
+    out += source + (sourceLen - count);
+}
+
+static String resolveBluetoothNameTemplate(const char *nameTemplate)
+{
+    const char serialNumber[] = "231012345678";
+    uint64_t mac = ESP.getEfuseMac();
+    char macHex[13];
+    sprintf(macHex,
+            "%02X%02X%02X%02X%02X%02X",
+            (uint8_t)(mac >> 40),
+            (uint8_t)(mac >> 32),
+            (uint8_t)(mac >> 24),
+            (uint8_t)(mac >> 16),
+            (uint8_t)(mac >> 8),
+            (uint8_t)(mac >> 0));
+
+    String resolved;
+
+    for (size_t i = 0; nameTemplate[i] != 0; i++)
+    {
+        if (nameTemplate[i] == '%' && isdigit((unsigned char)nameTemplate[i + 1]))
+        {
+            uint8_t count = 0;
+            size_t pos = i + 1;
+
+            while (isdigit((unsigned char)nameTemplate[pos]))
+            {
+                count = (count * 10) + (nameTemplate[pos] - '0');
+                pos++;
+            }
+
+            char code = nameTemplate[pos];
+            if (code == 's')
+            {
+                appendSuffix(resolved, serialNumber, count);
+                i = pos;
+                continue;
+            }
+            if (code == 'r')
+            {
+                appendSuffix(resolved, macHex, count);
+                i = pos;
+                continue;
+            }
+        }
+
+        resolved += nameTemplate[i];
+    }
+
+    return resolved;
+}
+
 static bool isHexDigitString(const char *value)
 {
     if (value == nullptr || *value == 0)
@@ -473,7 +534,8 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat(lineEnding);
             retString.concat("BL Ver: 4.3");
             retString.concat(lineEnding);
-            retString.concat("BT Dev Name: OBDLink CX");
+            retString.concat("BT Dev Name: ");
+            retString.concat(settings.btName);
         }
         else if (!strcmp(cmd, "stprs"))
         {
@@ -545,6 +607,26 @@ String ELM327Emu::processELMCmd(char *cmd)
         else if (!strncmp(cmd, "stbtpm", 6))
         {
             retString.concat("OK");
+        }
+        else if (!strncmp(cmd, "stbtdn", 6))
+        {
+            String newName = resolveBluetoothNameTemplate(cmd + 6);
+            if (newName.length() == 0)
+            {
+                retString.concat("?");
+            }
+            else
+            {
+                newName.toCharArray(settings.btName, sizeof(settings.btName));
+                newName.toCharArray(deviceName, sizeof(deviceName));
+
+                prefs.begin(PREF_NAME, false);
+                prefs.putString("btname", settings.btName);
+                prefs.end();
+
+                DEBUG("[ELM] STBTDN set broadcast name: %s\n", settings.btName);
+                retString.concat("OK");
+            }
         }
         else if (!strncmp(cmd, "stp", 3))
         {
@@ -677,7 +759,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "at@2"))
         {
-            retString.concat(deviceName);
+            retString.concat(settings.btName);
         }
         else if (!strcmp(cmd, "ati"))
         {

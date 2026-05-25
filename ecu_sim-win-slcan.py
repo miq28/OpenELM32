@@ -8,6 +8,14 @@ parser = argparse.ArgumentParser(description="OBD ECU simulator over SLCAN")
 parser.add_argument("--port", "--comport", default="COM9", help="SLCAN serial port")
 parser.add_argument("--channel", dest="port", help=argparse.SUPPRESS)
 parser.add_argument(
+    "--serial-baud",
+    "--tty-baudrate",
+    dest="serial_baud",
+    type=int,
+    default=115200,
+    help="SLCAN adapter serial baud rate",
+)
+parser.add_argument(
     "--protocol",
     type=int,
     choices=[6, 7, 8, 9],
@@ -66,9 +74,17 @@ PROTOCOLS = {
 protocol = PROTOCOLS[args.protocol]
 bitrate = args.bitrate or protocol["bitrate"]
 
-bus = can.interface.Bus(interface="slcan", channel=args.port, bitrate=bitrate)
+bus = can.interface.Bus(
+    interface="slcan",
+    channel=args.port,
+    bitrate=bitrate,
+    ttyBaudrate=args.serial_baud,
+)
 
-print(f"Realistic ECU simulator started: {protocol['name']} on {args.port} @ {bitrate}")
+print(
+    f"Realistic ECU simulator started: {protocol['name']} on {args.port} "
+    f"CAN @ {bitrate}, serial @ {args.serial_baud}"
+)
 
 start_time = time.time()
 

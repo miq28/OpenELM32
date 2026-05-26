@@ -4,6 +4,8 @@ This project uses the ESP32 firmware as an ELM327-compatible adapter. ECU behavi
 
 See `ELM327_COMMANDS.md` for the ELM compatibility matrix and diagnostics roadmap.
 
+Build and flash testing is intentionally left to the person with the hardware attached. When changing firmware behavior, update this file with the manual checks that proved the change.
+
 ## Setup
 
 1. Flash the ESP32 firmware.
@@ -11,6 +13,12 @@ See `ELM327_COMMANDS.md` for the ELM compatibility matrix and diagnostics roadma
 
    ```powershell
    python ecu_sim-win-slcan.py
+   ```
+
+   To run the simulator at a specific serial baud:
+
+   ```powershell
+   python ecu_sim-win-slcan.py --baud 2000000
    ```
 
 3. For USB serial ELM327 mode, enable it once from the serial console:
@@ -27,6 +35,27 @@ See `ELM327_COMMANDS.md` for the ELM compatibility matrix and diagnostics roadma
    ```
 
 Use `SERBAUD=115200` for applications that cannot open the adapter at `1000000`.
+
+The console presets are faster when switching test modes:
+
+```text
+APP=OBD
+APP=SERIAL115200
+APP=SERIAL1000000
+APP=DEV
+```
+
+Recommended OBD app testing baseline:
+
+```text
+PROFILE=OBD
+CANSTAT=0
+DEBUG=1
+DEBUGSER=0
+DEBUG485=1
+```
+
+`CANSTAT=1` is useful during development, but keep it off for normal OBD app validation unless the test specifically needs CAN throughput stats.
 
 ## Smoke Tests
 
@@ -50,6 +79,12 @@ BLE:
 python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
 ```
 
+Fuller regression when an app-facing change touches identity, OBDLink probes, DTCs, freeze-frame data, or multi-ECU responses:
+
+```powershell
+python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --obdlink --dtc --freeze-frame --multi-ecu
+```
+
 Expected VIN response from `ecu_sim-win-slcan.py`:
 
 ```text
@@ -57,6 +92,14 @@ Expected VIN response from `ecu_sim-win-slcan.py`:
 ```
 
 This decodes to `JT2BG22K1V0123456`.
+
+Expected ATRV behavior with the simulator:
+
+```text
+ATRV -> firmware sends PID 0142 -> simulator returns 0142 voltage bytes -> app sees a voltage like 14.1V
+```
+
+If the simulator is not running or a real ECU does not support PID `0142`, verify that the app-facing response still remains prompt-terminated and does not stall.
 
 ## App Compatibility
 
@@ -66,6 +109,38 @@ This decodes to `JT2BG22K1V0123456`.
 | Car Scanner | Works | Works | Works | Validate after firmware changes. |
 | Torque | Not primary | Works | Works | BLE tested historically. |
 | OBDWiz | Unsupported | Unsupported | Unsupported | Rejects the adapter during OBDLink vendor validation. |
+| OBDLink app | Not primary | Not primary | Works with current BLE path | Use for OBDLink/ST command compatibility checks. |
+
+## OBDLink BLE Checks
+
+The advertised BLE name can be changed by the OBDLink app with `STBTDN`. The app enforces a broadcast name shorter than 20 characters, so use 19 characters or fewer after suffix expansion.
+
+Useful identity checks:
+
+```text
+ATI    -> OBDLink CX
+AT@1   -> OBDLink CX
+AT@2   -> configured broadcast name
+STI    -> STN2310 v5.6.19
+STMFR  -> OBD Solutions LLC
+STDI   -> OBDLink CX r1.0.0
+STDIX  -> OBDLink CX details and current BT Dev Name
+STSN   -> 231012345678
+```
+
+Example broadcast-name write sent by the OBDLink app:
+
+```text
+STBTDN jontor%5s%5R
+```
+
+`%Ns` appends the last `N` serial-number characters. `%Nr` appends the last `N` Bluetooth/MAC-derived characters. The new name is persisted and takes effect after a reboot/power cycle.
+
+If the name is changed accidentally, reset it from the serial console and reboot:
+
+```text
+BTNAME=WEACT_CAN485_8CE0
+```
 
 ## Release Checklist
 
@@ -89,7 +164,14 @@ PROFILE=OBD
 PROFILE=DEV
 CONSOLECAN=0
 CONSOLECAN=1
+CANSTAT=0
+CANSTAT=1
 DEBUG=1
 DEBUGSER=0
 DEBUG485=1
+APP=OBD
+APP=SERIAL115200
+APP=SERIAL1000000
+APP=DEV
+BTNAME=WEACT_CAN485_8CE0
 ```

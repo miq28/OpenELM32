@@ -9,6 +9,7 @@ parser.add_argument("--port", "--comport", default="COM9", help="SLCAN serial po
 parser.add_argument("--channel", dest="port", help=argparse.SUPPRESS)
 parser.add_argument(
     "--serial-baud",
+    "--baud",
     "--tty-baudrate",
     dest="serial_baud",
     type=int,
@@ -90,6 +91,7 @@ start_time = time.time()
 
 VIN = "JT2BG22K1V0123456"
 DTC_P2304 = [0x23, 0x04]
+dtcs_cleared = False
 
 
 def build_msg(arbid, data):
@@ -112,6 +114,13 @@ def send_msg(msg, delay=None):
 def send_functional_responses(responses):
     for response_id, data in responses:
         send_msg(build_msg(response_id, data), 0.001)
+
+
+def build_dtc_response(response_id, service):
+    if dtcs_cleared:
+        return build_msg(response_id, [0x02, 0x40 | service, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    return build_msg(response_id, [0x05, 0x40 | service, 0x01, *DTC_P2304, 0x00, 0x00, 0x00])
 
 
 while True:
@@ -335,7 +344,8 @@ while True:
 
     elif data[:3] == [0x02, 0x01, 0x01]:
 
-        resp = build_msg(response_id, [0x06, 0x41, 0x01, 0x81, 0x07, 0x65, 0x04, 0x00])
+        mil_and_count = 0x00 if dtcs_cleared else 0x81
+        resp = build_msg(response_id, [0x06, 0x41, 0x01, mil_and_count, 0x07, 0x65, 0x04, 0x00])
 
     # --------------------------------------------
     # MODE 01 PID 10 - MAF air flow rate
@@ -432,20 +442,25 @@ while True:
         )
 
     # --------------------------------------------
-    # MODE 03/07/0A DTC responses
+    # MODE 03/04/07/0A DTC responses
     # --------------------------------------------
 
     elif data[:2] == [0x01, 0x03]:
 
-        resp = build_msg(response_id, [0x05, 0x43, 0x01, *DTC_P2304, 0x00, 0x00, 0x00])
+        resp = build_dtc_response(response_id, 0x03)
+
+    elif data[:2] == [0x01, 0x04]:
+
+        dtcs_cleared = True
+        resp = build_msg(response_id, [0x01, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 
     elif data[:2] == [0x01, 0x07]:
 
-        resp = build_msg(response_id, [0x05, 0x47, 0x01, *DTC_P2304, 0x00, 0x00, 0x00])
+        resp = build_dtc_response(response_id, 0x07)
 
     elif data[:2] == [0x01, 0x0A]:
 
-        resp = build_msg(response_id, [0x05, 0x4A, 0x01, *DTC_P2304, 0x00, 0x00, 0x00])
+        resp = build_dtc_response(response_id, 0x0A)
 
     # --------------------------------------------
     # unsupported PID

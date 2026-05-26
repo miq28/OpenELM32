@@ -16,7 +16,7 @@ This project emulates enough ELM327/OBDLink behavior to work with common OBD app
 | Adapter identity probes | Supported/stubbed | Covered by `--identity`. |
 | Request-side ISO-TP segmentation | Not implemented | Needed for long UDS requests sent from app to ECU. |
 | Full UDS diagnostics | Not implemented | Should be added selectively, not as a full stack first. |
-| DTC convenience behavior | Partial/pass-through | Apps can send service requests, but user-friendly handling needs targeted tests. |
+| DTC convenience behavior | Partial/pass-through | Firmware passes app requests to CAN. The simulator covers `03`, `04`, `07`, and `0A` for safe testing. |
 | Non-CAN ELM protocols | Not planned | Not useful for this ESP32 CAN-focused adapter. |
 
 ## Implemented or Stubbed Commands
@@ -40,6 +40,8 @@ This project emulates enough ELM327/OBDLink behavior to work with common OBD app
 | `ATDP`, `ATDPN` | Report protocol name/number | Supported. |
 | `ATTP...` | Try protocol | Stubbed OK, sets physical ECU addressing. |
 | `ATRV` | Requests OBD PID `0142` and reports voltage such as `14.1V` | Falls back to prompt-terminated app-facing behavior if no ECU voltage is available. |
+| `03`, `07`, `0A` | Pass-through DTC read services | Covered by simulator/test flag `--dtc`. |
+| `04` | Pass-through clear-DTC service | Covered by simulator/test flag `--clear-dtc`; use with care on real vehicles. |
 | `ATAT...`, `ATM...`, `ATST...`, `ATSW...` | Timing/memory parameters | Stubbed OK. |
 | `ATCAF...`, `ATAL`, `ATCEA...`, `ATPC`, `ATWS`, `ATCTM...`, `ATFI...` | Common compatibility commands | Stubbed OK. |
 | Unknown `AT...` | Returns `OK` | App-friendly fallback. |
@@ -61,9 +63,9 @@ This project emulates enough ELM327/OBDLink behavior to work with common OBD app
      `0x10` diagnostic session control, `0x22` read data by identifier, `0x19` read DTC information, and `0x14` clear DTC information.
    - Keep the ESP32 acting as adapter first. Let the ECU or simulator decide positive/negative responses.
 
-4. **Add DTC-focused test scenarios**
-   - Extend `ecu_sim-win-slcan.py` with known DTC responses.
-   - Add test flags for OBD services `03`, `07`, `0A`, and UDS service `19`.
+4. **Expand DTC-focused test scenarios**
+   - `ecu_sim-win-slcan.py` has known DTC responses and simulator-only Mode 04 clear state.
+   - Keep OBD services `03`, `04`, `07`, and `0A` covered before adding UDS service `19`.
    - Verify app output with OBD Auto Doctor and Car Scanner.
 
 5. **Only then consider higher-level diagnostics features**
@@ -78,9 +80,9 @@ Baseline all-transport regression:
 python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity
 ```
 
-When DTC tests are added, they should become optional flags like:
+DTC simulator checks:
 
 ```powershell
 python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --dtc
-python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --uds
+python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --clear-dtc
 ```

@@ -82,9 +82,21 @@ DTC_SEQUENCE = [
     ("ATH0", [r"OK"]),
     ("ATS0", [r"OK"]),
     ("ATSH7DF", [r"OK"]),
-    ("03", [r"43012304|NO DATA"]),
-    ("07", [r"47012304|NO DATA"]),
-    ("0A", [r"4A012304|NO DATA"]),
+    ("03", [r"43012304|4300|NO DATA"]),
+    ("07", [r"47012304|4700|NO DATA"]),
+    ("0A", [r"4A012304|4A00|NO DATA"]),
+    ("ATSH7E0", [r"OK"]),
+]
+
+CLEAR_DTC_SEQUENCE = [
+    ("ATH0", [r"OK"]),
+    ("ATS0", [r"OK"]),
+    ("ATSH7DF", [r"OK"]),
+    ("04", [r"44|NO DATA"]),
+    ("03", [r"4300|NO DATA"]),
+    ("07", [r"4700|NO DATA"]),
+    ("0A", [r"4A00|NO DATA"]),
+    ("0101", [r"410100|NO DATA"]),
     ("ATSH7E0", [r"OK"]),
 ]
 
@@ -303,6 +315,7 @@ def run_sequence(
     include_identity=False,
     include_obdlink=False,
     include_dtc=False,
+    include_clear_dtc=False,
     include_freeze_frame=False,
     include_multi_ecu=False,
 ):
@@ -332,6 +345,9 @@ def run_sequence(
 
     if include_multi_ecu:
         sequence.extend(MULTI_ECU_SEQUENCE)
+
+    if include_clear_dtc:
+        sequence.extend(CLEAR_DTC_SEQUENCE)
 
     for command, patterns in sequence:
         conn.drain()
@@ -361,6 +377,7 @@ async def run_ble_sequence(
     include_identity=False,
     include_obdlink=False,
     include_dtc=False,
+    include_clear_dtc=False,
     include_freeze_frame=False,
     include_multi_ecu=False,
 ):
@@ -390,6 +407,9 @@ async def run_ble_sequence(
 
     if include_multi_ecu:
         sequence.extend(MULTI_ECU_SEQUENCE)
+
+    if include_clear_dtc:
+        sequence.extend(CLEAR_DTC_SEQUENCE)
 
     await conn.connect()
     try:
@@ -428,6 +448,7 @@ def main(argv):
     serial_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
     serial_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     serial_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    serial_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     serial_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     serial_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
@@ -440,6 +461,7 @@ def main(argv):
     tcp_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
     tcp_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     tcp_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    tcp_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     tcp_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     tcp_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
@@ -452,6 +474,7 @@ def main(argv):
     ble_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
     ble_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
     ble_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
+    ble_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     ble_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     ble_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
 
@@ -471,6 +494,7 @@ def main(argv):
                 args.identity,
                 args.obdlink,
                 args.dtc,
+                args.clear_dtc,
                 args.freeze_frame,
                 args.multi_ecu,
             )
@@ -492,6 +516,7 @@ def main(argv):
             args.identity,
             args.obdlink,
             args.dtc,
+            args.clear_dtc,
             args.freeze_frame,
             args.multi_ecu,
         )

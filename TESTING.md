@@ -85,6 +85,14 @@ Fuller regression when an app-facing change touches identity, OBDLink probes, DT
 python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --obdlink --dtc --freeze-frame --multi-ecu
 ```
 
+Simulator-only DTC clear validation:
+
+```powershell
+python elm327_compat_test.py serial --port COM5 --baud 1000000 --dtc --clear-dtc
+```
+
+Use `--clear-dtc` only with `ecu_sim-win-slcan.py` while validating this branch. On a real vehicle, OBD service `04` can erase diagnostic trouble codes, freeze-frame data, and readiness-related diagnostic state.
+
 Expected VIN response from `ecu_sim-win-slcan.py`:
 
 ```text

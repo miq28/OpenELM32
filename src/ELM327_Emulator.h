@@ -106,6 +106,7 @@ private:
     String processELMCmd(char *cmd);
     void sendTxBuffer();
     void flushPendingReply();
+    const char *activeTransportName() const;
     void setProtocol(uint8_t protocol);
     bool isCurrentProtocolSupported() const;
     bool isCurrentProtocolExtended() const;

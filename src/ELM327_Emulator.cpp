@@ -299,7 +299,9 @@ void ELM327Emu::loop()
                 multiFrameActive = false;
                 pendingVoltageRequest = false;
                 waitingForReply = false;
-                DEBUG("[ELM %lu] APP TX: NO DATA\\r\\n>\n", activeTxn);
+                DEBUG("[ELM %lu %s] APP TX: NO DATA\\r\\n>\n",
+                      activeTxn,
+                      activeTransportName());
                 txBuffer.sendString("NO DATA\r\n>");
                 sendTxBuffer();
             }
@@ -316,7 +318,9 @@ void ELM327Emu::loop()
                 waitingForReply = false;
                 pendingVoltageRequest = false;
 
-                DEBUG("[ELM %lu] APP TX: NO DATA\\r\\n>\n", activeTxn);
+                DEBUG("[ELM %lu %s] APP TX: NO DATA\\r\\n>\n",
+                      activeTxn,
+                      activeTransportName());
                 txBuffer.sendString("NO DATA\r\n>");
 
                 sendTxBuffer();
@@ -330,13 +334,29 @@ void ELM327Emu::flushPendingReply()
     waitingForReply = false;
 
     String response = replyAccumulator + ">";
-    DEBUG("[ELM %lu] APP TX: %s\n",
+    DEBUG("[ELM %lu %s] APP TX: %s\n",
           activeTxn,
+          activeTransportName(),
           escapeElmLogText(response).c_str());
 
     txBuffer.sendString(replyAccumulator);
     txBuffer.sendString(">");
     sendTxBuffer();
+}
+
+const char *ELM327Emu::activeTransportName() const
+{
+    switch (activeTransport)
+    {
+    case TRANSPORT_WIFI:
+        return "TCP";
+    case TRANSPORT_BLE:
+        return "BLE";
+    case TRANSPORT_SERIAL:
+        return "USB";
+    default:
+        return "?";
+    }
 }
 
 bool ELM327Emu::isCurrentProtocolSupported() const
@@ -426,7 +446,9 @@ void ELM327Emu::processCmd()
         flushPendingReply();
     }
 
-    DEBUG("[APP->ELM RX] %s\n", incomingPrintable[0] ? incomingPrintable : incomingBuffer);
+    DEBUG("[%s APP->ELM RX] %s\n",
+          activeTransportName(),
+          incomingPrintable[0] ? incomingPrintable : incomingBuffer);
 
     char *cmd = incomingBuffer;
 
@@ -451,7 +473,9 @@ void ELM327Emu::processCmd()
 
             if (retString.length() > 0)
             {
-                DEBUG("[ELM->APP TX] %s\n", escapeElmLogText(retString).c_str());
+                DEBUG("[%s ELM->APP TX] %s\n",
+                      activeTransportName(),
+                      escapeElmLogText(retString).c_str());
                 txBuffer.sendString(retString);
                 sendTxBuffer();
             }
@@ -717,7 +741,9 @@ String ELM327Emu::processELMCmd(char *cmd)
             if (idSize == 3 || idSize == 4 || idSize == 8)
             {
                 ecuAddress = Utility::parseHexString(idText, idSize);
-                DEBUG("New ECU address: %x", ecuAddress);
+                DEBUG("[%s ELM] ECU address: %x\n",
+                      activeTransportName(),
+                      ecuAddress);
                 retString.concat("OK");
             }
             else
@@ -893,8 +919,9 @@ String ELM327Emu::processELMCmd(char *cmd)
                 uint32_t txn = ++elmTxnCounter;
                 activeTxn = txn;
 
-                DEBUG("[ELM %lu] CAN TX: cmd:%s->0142 id:%03X len:%u data:%s\n",
+                DEBUG("[ELM %lu %s] CAN TX: cmd:%s->0142 id:%03X len:%u data:%s\n",
                       txn,
+                      activeTransportName(),
                       cmd,
                       outFrame.id,
                       outFrame.length,
@@ -1057,8 +1084,9 @@ String ELM327Emu::processELMCmd(char *cmd)
 
     activeTxn = txn;
 
-    DEBUG("[ELM %lu] CAN TX: cmd:%s id:%03X len:%u data:%s\n",
+    DEBUG("[ELM %lu %s] CAN TX: cmd:%s id:%03X len:%u data:%s\n",
           txn,
+          activeTransportName(),
           cmd,
           outFrame.id,
           outFrame.length,
@@ -1141,8 +1169,9 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
 
     gotReply = true;
 
-    DEBUG("[ELM %lu] CAN RX: id:%03X len:%u data:%s\n",
+    DEBUG("[ELM %lu %s] CAN RX: id:%03X len:%u data:%s\n",
           activeTxn,
+          activeTransportName(),
           frame.id,
           frame.length,
           formatCanFrameData(frame).c_str());

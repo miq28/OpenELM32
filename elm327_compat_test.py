@@ -123,6 +123,49 @@ MULTI_ECU_SEQUENCE = [
 ]
 
 
+def build_sections(
+    include_vin=False,
+    include_invalid=False,
+    include_formatting=False,
+    include_identity=False,
+    include_obdlink=False,
+    include_dtc=False,
+    include_clear_dtc=False,
+    include_freeze_frame=False,
+    include_multi_ecu=False,
+):
+    sections = [("BASELINE", DEFAULT_SEQUENCE)]
+
+    if include_vin:
+        sections.append(("VIN", VIN_SEQUENCE))
+
+    if include_invalid:
+        sections.append(("INVALID COMMANDS", INVALID_SEQUENCE))
+
+    if include_formatting:
+        sections.append(("FORMATTING", FORMATTING_SEQUENCE))
+
+    if include_identity:
+        sections.append(("IDENTITY", IDENTITY_SEQUENCE))
+
+    if include_obdlink:
+        sections.append(("OBDLINK", OBDLINK_SEQUENCE))
+
+    if include_dtc:
+        sections.append(("DTC READ", DTC_SEQUENCE))
+
+    if include_freeze_frame:
+        sections.append(("FREEZE FRAME", FREEZE_FRAME_SEQUENCE))
+
+    if include_multi_ecu:
+        sections.append(("MULTI ECU", MULTI_ECU_SEQUENCE))
+
+    if include_clear_dtc:
+        sections.append(("DTC CLEAR", CLEAR_DTC_SEQUENCE))
+
+    return sections
+
+
 class ElmConnection:
     def write(self, data):
         raise NotImplementedError
@@ -320,50 +363,36 @@ def run_sequence(
     include_multi_ecu=False,
 ):
     failures = 0
-    sequence = list(DEFAULT_SEQUENCE)
+    sections = build_sections(
+        include_vin,
+        include_invalid,
+        include_formatting,
+        include_identity,
+        include_obdlink,
+        include_dtc,
+        include_clear_dtc,
+        include_freeze_frame,
+        include_multi_ecu,
+    )
 
-    if include_vin:
-        sequence.extend(VIN_SEQUENCE)
+    for section_name, sequence in sections:
+        print(f"\n--- {section_name} ---")
 
-    if include_invalid:
-        sequence.extend(INVALID_SEQUENCE)
+        for command, patterns in sequence:
+            conn.drain()
+            conn.write(command.encode("ascii") + b"\r")
+            raw = conn.read_until_prompt(timeout)
+            shown = printable(raw)
+            compact = normalize(raw)
 
-    if include_formatting:
-        sequence.extend(FORMATTING_SEQUENCE)
+            ok = any(re.search(pattern, compact, re.IGNORECASE) for pattern in patterns)
+            status = "PASS" if ok else "FAIL"
+            print(f"{status} {command:<6} {shown}")
 
-    if include_identity:
-        sequence.extend(IDENTITY_SEQUENCE)
+            if not ok:
+                failures += 1
 
-    if include_obdlink:
-        sequence.extend(OBDLINK_SEQUENCE)
-
-    if include_dtc:
-        sequence.extend(DTC_SEQUENCE)
-
-    if include_freeze_frame:
-        sequence.extend(FREEZE_FRAME_SEQUENCE)
-
-    if include_multi_ecu:
-        sequence.extend(MULTI_ECU_SEQUENCE)
-
-    if include_clear_dtc:
-        sequence.extend(CLEAR_DTC_SEQUENCE)
-
-    for command, patterns in sequence:
-        conn.drain()
-        conn.write(command.encode("ascii") + b"\r")
-        raw = conn.read_until_prompt(timeout)
-        shown = printable(raw)
-        compact = normalize(raw)
-
-        ok = any(re.search(pattern, compact, re.IGNORECASE) for pattern in patterns)
-        status = "PASS" if ok else "FAIL"
-        print(f"{status} {command:<6} {shown}")
-
-        if not ok:
-            failures += 1
-
-        time.sleep(0.05)
+            time.sleep(0.05)
 
     return failures
 
@@ -382,53 +411,39 @@ async def run_ble_sequence(
     include_multi_ecu=False,
 ):
     failures = 0
-    sequence = list(DEFAULT_SEQUENCE)
-
-    if include_vin:
-        sequence.extend(VIN_SEQUENCE)
-
-    if include_invalid:
-        sequence.extend(INVALID_SEQUENCE)
-
-    if include_formatting:
-        sequence.extend(FORMATTING_SEQUENCE)
-
-    if include_identity:
-        sequence.extend(IDENTITY_SEQUENCE)
-
-    if include_obdlink:
-        sequence.extend(OBDLINK_SEQUENCE)
-
-    if include_dtc:
-        sequence.extend(DTC_SEQUENCE)
-
-    if include_freeze_frame:
-        sequence.extend(FREEZE_FRAME_SEQUENCE)
-
-    if include_multi_ecu:
-        sequence.extend(MULTI_ECU_SEQUENCE)
-
-    if include_clear_dtc:
-        sequence.extend(CLEAR_DTC_SEQUENCE)
+    sections = build_sections(
+        include_vin,
+        include_invalid,
+        include_formatting,
+        include_identity,
+        include_obdlink,
+        include_dtc,
+        include_clear_dtc,
+        include_freeze_frame,
+        include_multi_ecu,
+    )
 
     await conn.connect()
     try:
         await conn.async_drain()
-        for command, patterns in sequence:
-            await conn.async_drain()
-            await conn.async_write(command.encode("ascii") + b"\r")
-            raw = await conn.async_read_until_prompt(timeout)
-            shown = printable(raw)
-            compact = normalize(raw)
+        for section_name, sequence in sections:
+            print(f"\n--- {section_name} ---")
 
-            ok = any(re.search(pattern, compact, re.IGNORECASE) for pattern in patterns)
-            status = "PASS" if ok else "FAIL"
-            print(f"{status} {command:<6} {shown}")
+            for command, patterns in sequence:
+                await conn.async_drain()
+                await conn.async_write(command.encode("ascii") + b"\r")
+                raw = await conn.async_read_until_prompt(timeout)
+                shown = printable(raw)
+                compact = normalize(raw)
 
-            if not ok:
-                failures += 1
+                ok = any(re.search(pattern, compact, re.IGNORECASE) for pattern in patterns)
+                status = "PASS" if ok else "FAIL"
+                print(f"{status} {command:<6} {shown}")
 
-            await asyncio.sleep(0.05)
+                if not ok:
+                    failures += 1
+
+                await asyncio.sleep(0.05)
     finally:
         await conn.async_close()
 

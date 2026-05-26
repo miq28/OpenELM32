@@ -26,6 +26,8 @@ void printEEPROMSettings(const EEPROMSettings &cfg)
                   cfg.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
     consolePrintf("canStatsOutput       : %s\n",
                   cfg.canStatsOutput ? "true" : "false");
+    consolePrintf("elmFastPoll          : %s\n",
+                  cfg.elmFastPoll ? "true" : "false");
 
     // ------------------------------------------------------------------
     // Bus

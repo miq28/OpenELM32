@@ -344,6 +344,14 @@ void ELM327Emu::flushPendingReply()
     sendTxBuffer();
 }
 
+bool ELM327Emu::isFastPollEligible() const
+{
+    return settings.elmFastPoll &&
+           pendingMode == 0x01 &&
+           ecuAddress != currentProtocolFunctionalId() &&
+           !multiFrameActive;
+}
+
 const char *ELM327Emu::activeTransportName() const
 {
     switch (activeTransport)
@@ -1471,6 +1479,11 @@ void ELM327Emu::processCANReply(CAN_FRAME &frame)
     else
     {
         replyAccumulator += "\r";
+    }
+
+    if (isFastPollEligible())
+    {
+        flushPendingReply();
     }
 }
 

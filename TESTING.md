@@ -172,6 +172,26 @@ python elm327_rate_test.py --count 100 --quiet ble --address e0:8c:fe:a8:94:be
 The default command is `010C` and expected response marker is `410C`. Use `--command` and `--expect` to test a different PID.
 Use `--header 7E0` to benchmark a physical ECU request instead of the default functional broadcast header `7DF`.
 
+Fast physical Mode 01 polling can be enabled from the console:
+
+```text
+ELMFASTPOLL=1
+```
+
+With `ELMFASTPOLL=1`, physical-header Mode 01 single-frame replies return immediately after the first valid ECU response instead of waiting for the normal multi-ECU quiet window. Functional broadcast requests such as `7DF`, multi-frame replies, VIN, DTC, and other modes keep the normal behavior.
+
+Compare before and after with:
+
+```powershell
+python elm327_rate_test.py --count 100 --quiet --header 7E0 ble --address e0:8c:fe:a8:94:be
+```
+
+Disable it again with:
+
+```text
+ELMFASTPOLL=0
+```
+
 ## Clear DTC Utility
 
 `obd_clear_dtc.py` is intentionally separate from the read-only scanner. By default it performs a dry run and only prints the command plan.

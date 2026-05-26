@@ -83,6 +83,8 @@ static void printRuntimeStatus()
     Logger::console("  CONSOLECAN=%i CANSTAT=%i",
                     settings.consoleCANOutput ? 1 : 0,
                     settings.canStatsOutput ? 1 : 0);
+    Logger::console("  ELMFASTPOLL=%i",
+                    settings.elmFastPoll ? 1 : 0);
     Logger::console("  DEBUG=%i DEBUGSER=%i DEBUG485=%i",
                     debug_enabled ? 1 : 0,
                     debug_to_serial ? 1 : 0,
@@ -156,6 +158,7 @@ void SerialConsole::printMenu()
     Logger::console("BTNAME=%s - Set advertised Bluetooth name", settings.btName);
     Logger::console("SENDBUS=%i - Set which CAN bus to send messages from ELM327 emulator", settings.sendingBus);
     Logger::console("ELM327SERIAL=%i - Enable ELM327 command mode on USB serial (0=Dis, 1=En)", settings.enableElmSerial);
+    Logger::console("ELMFASTPOLL=%i - Return physical Mode 01 replies immediately (0=Dis, 1=En)", settings.elmFastPoll);
     Logger::console("APP=<preset> - Apply preset (OBD, SERIAL115200, SERIAL1000000, DEV)");
     Logger::console("STATUS=1 - Show current runtime mode");
     consolePrintln();
@@ -620,6 +623,15 @@ void SerialConsole::handleConfigCmd()
 
         writeEEPROM = true;
     }
+    else if (cmdString == String("ELMFASTPOLL") || cmdString == String("ELM_FAST_POLL"))
+    {
+        settings.elmFastPoll = (newValue != 0);
+
+        Logger::console("ELM fast polling %s",
+                        settings.elmFastPoll ? "ENABLED" : "DISABLED");
+
+        writeEEPROM = true;
+    }
     else if (cmdString == String("PROFILE"))
     {
         String profile = String(newString);
@@ -833,6 +845,7 @@ void SerialConsole::handleConfigCmd()
         prefs.putInt("sendingBus", settings.sendingBus);
         prefs.putBool("enableLawicel", settings.enableLawicel);
         prefs.putBool("elmSerial", settings.enableElmSerial);
+        prefs.putBool("elmFastPoll", settings.elmFastPoll);
         prefs.putBool("consoleCAN", settings.consoleCANOutput);
         prefs.putBool("canStats", settings.canStatsOutput);
 

@@ -99,6 +99,7 @@ void printPrefs()
                   prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV) == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
     consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
     consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", false));
+    consolePrintf("elmFastPoll=%d\n", prefs.getBool("elmFastPoll", false));
     consolePrintf("consoleCAN=%d\n", prefs.getBool("consoleCAN", true));
     consolePrintf("canStats=%d\n",
                   prefs.getBool("canStats",
@@ -348,6 +349,7 @@ void loadSettings()
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
     settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
     settings.enableElmSerial = prefs.getBool("elmSerial", false);
+    settings.elmFastPoll = prefs.getBool("elmFastPoll", false);
     settings.consoleCANOutput = prefs.getBool("consoleCAN", true);
     settings.canStatsOutput = prefs.getBool("canStats",
                                             settings.runtimeProfile != RUNTIME_PROFILE_OBD);
@@ -512,6 +514,7 @@ void loadSettings()
     consolePrintf("serialBaud=%u\n", settings.serialBaud);
     consolePrintf("runtimeProfile=%s\n",
                   settings.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
+    consolePrintf("elmFastPoll=%d\n", settings.elmFastPoll);
 }
 
 void setup()

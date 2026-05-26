@@ -107,6 +107,7 @@ private:
     void sendTxBuffer();
     void flushPendingReply();
     const char *activeTransportName() const;
+    bool isFastPollEligible() const;
     void setProtocol(uint8_t protocol);
     bool isCurrentProtocolSupported() const;
     bool isCurrentProtocolExtended() const;

@@ -339,6 +339,9 @@ python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.2
 python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --dtc --multi-ecu
 python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --obdlink
 
+safe to test to real car
+python run_elm327_tests.py --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --serial COM4 --serial-baud 115200 --vin --dtc --freeze-frame --identity --formatting --invalid --obdlink
+
 
 Best Next Improvements
 
@@ -370,3 +373,32 @@ OBDWiz: currently rejected by vendor validation
 This makes debugging much faster.
 Virtual ECU improvements
 Your fake ECU currently answers basic PIDs. Add more standard PIDs and realistic dynamic values: RPM, speed, coolant temp, fuel trims, voltage, VIN. This helps demos and app validation.
+
+
+
+
+Yes. Best repo I found for your exact car is:
+
+```text
+https://github.com/OBDb/Honda-CR-V
+```
+
+It is part of OBDb, which is an open community OBD database. The Honda CR-V repo says it contains signal set configurations by model year/version, intended for accurate signal mapping per CR-V generation. OBDb also has the standard SAE J1979 PID repo:
+
+```text
+https://github.com/OBDb/SAEJ1979
+```
+
+Use them like this:
+
+- `OBDb/SAEJ1979`: standard OBD-II commands, safe baseline, Mode `01`, `09`, DTC reads, etc.
+- `OBDb/Honda-CR-V`: Honda CR-V specific signal sets, likely where extended/enhanced PIDs live.
+- Pelican’s Honda CR-V page confirms it has CR-V OBD PID support and lists 2013-2014 CR-V as a supported model-year range.
+
+Important caution: extended/enhanced Honda PIDs are often not just simple `01xx`; they may use Mode `22`, custom headers, or module-specific addressing. Treat them as read-only first, and do not test anything that looks like clear/write/control: `04`, `14`, `2E`, `2F`, `31`, etc.
+
+Sources:
+- OBDb Honda CR-V repo: https://github.com/OBDb/Honda-CR-V
+- OBDb SAE J1979 repo: https://github.com/OBDb/SAEJ1979
+- OBDb organization: https://github.com/OBDb
+- Pelican Honda CR-V OBD page: https://pelican.clutch.engineering/cars/honda/cr-v/

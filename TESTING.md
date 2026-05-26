@@ -147,6 +147,31 @@ python saej1979_scan.py --csv crv2013-saej1979.csv ble --address e0:8c:fe:a8:94:
 
 The scanner covers Mode `01`, Mode `02`, Mode `06`, Mode `09`, and DTC reads `03`/`07`/`0A`. It does not send Mode `04`, Mode `08`, or write/control services.
 
+## ELM327 Transport Rate Test
+
+`elm327_rate_test.py` measures raw ELM request/response rate without app polling behavior. Use it with the Python ECU simulator to compare USB serial, WiFi/TCP, and BLE using the same PID command.
+
+Serial:
+
+```powershell
+python elm327_rate_test.py --count 100 --quiet serial --port COM4 --baud 115200
+```
+
+TCP/WiFi:
+
+```powershell
+python elm327_rate_test.py --count 100 --quiet tcp --host 192.168.1.242
+```
+
+BLE:
+
+```powershell
+python elm327_rate_test.py --count 100 --quiet ble --address e0:8c:fe:a8:94:be
+```
+
+The default command is `010C` and expected response marker is `410C`. Use `--command` and `--expect` to test a different PID.
+Use `--header 7E0` to benchmark a physical ECU request instead of the default functional broadcast header `7DF`.
+
 ## Clear DTC Utility
 
 `obd_clear_dtc.py` is intentionally separate from the read-only scanner. By default it performs a dry run and only prints the command plan.

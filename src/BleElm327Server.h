@@ -17,6 +17,11 @@ public:
     static BleElm327Server* getInstance();
 
 private:
+    enum class ReplyPath {
+        Obdlink,
+        GenericSerial,
+    };
+
     class ServerCallbacks;
     class SerialCallbacks;
     class DeviceInfoCallbacks;
@@ -33,6 +38,7 @@ private:
     bool genericSerialSubscribed = false;
     uint16_t peerMtu = 23;
     String lastResponse;
+    ReplyPath replyPath = ReplyPath::Obdlink;
 
     ServerCallbacks* serverCallbacks = nullptr;
     SerialCallbacks* serialCallbacks = nullptr;
@@ -40,5 +46,7 @@ private:
 
     static String printable(String value);
     NimBLECharacteristic* addDeviceInfoCharacteristic(NimBLEService* service, const char* uuid, const char* value);
+    void selectReplyPath(NimBLECharacteristic* characteristic);
+    bool notifyPreferred(const String& response);
     void notifyChunked(NimBLECharacteristic* characteristic, const String& response, const char* label);
 };

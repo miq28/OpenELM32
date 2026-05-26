@@ -232,7 +232,7 @@ class SerialElmConnection(ElmConnection):
         except ImportError as exc:
             raise SystemExit("pyserial is required: pip install pyserial") from exc
 
-        self.serial = serial.Serial(port, baudrate=baud, timeout=0.05, write_timeout=1.0)
+        self.serial = serial.Serial(port, baudrate=baud, timeout=0, write_timeout=1.0)
         time.sleep(0.2)
         self.serial.reset_input_buffer()
 
@@ -242,14 +242,18 @@ class SerialElmConnection(ElmConnection):
 
     def read_until_prompt(self, timeout):
         deadline = time.monotonic() + timeout
-        chunks = []
+        buffer = bytearray()
         while time.monotonic() < deadline:
-            data = self.serial.read(256)
+            available = self.serial.in_waiting
+            data = self.serial.read(available if available else 1)
             if data:
-                chunks.append(data)
-                if b">" in data:
+                buffer.extend(data)
+                if b">" in buffer:
                     break
-        return b"".join(chunks)
+
+            time.sleep(0.001)
+
+        return bytes(buffer)
 
     def drain(self, duration=0.15):
         deadline = time.monotonic() + duration
@@ -258,6 +262,8 @@ class SerialElmConnection(ElmConnection):
             if self.serial.read(256):
                 self.serial.reset_input_buffer()
                 deadline = time.monotonic() + duration
+            else:
+                time.sleep(0.001)
 
     def close(self):
         self.serial.close()

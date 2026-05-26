@@ -2,6 +2,13 @@
 #include "debug.h"
 #include "console_io.h"
 
+namespace {
+constexpr uint16_t BLE_FAST_CONN_MIN_INTERVAL = 6;   // 7.5 ms, units of 1.25 ms
+constexpr uint16_t BLE_FAST_CONN_MAX_INTERVAL = 6;   // 7.5 ms, units of 1.25 ms
+constexpr uint16_t BLE_FAST_CONN_LATENCY = 0;
+constexpr uint16_t BLE_FAST_CONN_TIMEOUT = 400;      // 4 s, units of 10 ms
+}
+
 static BleElm327Server* g_bleServer = nullptr;
 
 class BleElm327Server::ServerCallbacks : public NimBLEServerCallbacks {
@@ -20,6 +27,12 @@ public:
                       pServer->getConnectedCount(),
                       CONFIG_BT_NIMBLE_MAX_CONNECTIONS);
         consolePrintf("[BLE] Connection details:\n%s\n", connInfo.toString().c_str());
+
+        pServer->updateConnParams(connInfo.getConnHandle(),
+                                  BLE_FAST_CONN_MIN_INTERVAL,
+                                  BLE_FAST_CONN_MAX_INTERVAL,
+                                  BLE_FAST_CONN_LATENCY,
+                                  BLE_FAST_CONN_TIMEOUT);
 
         int rc = 0;
         if (!connInfo.isEncrypted() &&
@@ -43,6 +56,7 @@ public:
         owner.obdlinkNotifySubscribed = false;
         owner.genericSerialSubscribed = false;
         owner.peerMtu = 23;
+        owner.replyPath = ReplyPath::Obdlink;
         consolePrintf("[BLE] Client disconnected. Reason: %d (%s). Connected clients: %u/%u\n",
                       reason,
                       NimBLEUtils::returnCodeToString(reason),
@@ -61,6 +75,10 @@ public:
     void onMTUChange(uint16_t mtu, NimBLEConnInfo& connInfo) override {
         owner.peerMtu = mtu;
         consolePrintf("[BLE] MTU updated: %u for handle: %u\n", mtu, connInfo.getConnHandle());
+    }
+
+    void onConnParamsUpdate(NimBLEConnInfo& connInfo) override {
+        consolePrintf("[BLE] Connection parameters updated:\n%s\n", connInfo.toString().c_str());
     }
 
     void onAuthenticationComplete(NimBLEConnInfo& connInfo) override {
@@ -94,6 +112,7 @@ public:
                       characteristic->getUUID().toString().c_str(),
                       printable(data).c_str());
 
+        owner.selectReplyPath(characteristic);
         owner.emulator.useBLETransport();
 
         // Feed bytes to emulator byte-by-byte
@@ -210,6 +229,8 @@ void BleElm327Server::begin(const char* advertisedName) {
     advertising->setAdvertisementData(advData);
     advertising->setScanResponseData(scanData);
     advertising->enableScanResponse(true);
+    advertising->setPreferredParams(BLE_FAST_CONN_MIN_INTERVAL,
+                                    BLE_FAST_CONN_MAX_INTERVAL);
     advertising->setConnectableMode(BLE_GAP_CONN_MODE_UND);
 
     if (advertising->start(0)) {
@@ -222,14 +243,14 @@ void BleElm327Server::begin(const char* advertisedName) {
 void BleElm327Server::notifyResponse(const String& response) {
     lastResponse = response;
 
-    bool notified = false;
+    bool notified = notifyPreferred(response);
 
-    if (obdlinkNotifySubscribed) {
+    if (!notified && obdlinkNotifySubscribed) {
         notifyChunked(obdlinkNotifyChar, response, "FFF1");
         notified = true;
     }
 
-    if (genericSerialSubscribed) {
+    if (!notified && genericSerialSubscribed) {
         notifyChunked(genericSerialChar, response, "FFE1");
         notified = true;
     }
@@ -238,6 +259,33 @@ void BleElm327Server::notifyResponse(const String& response) {
         consolePrintln("[BLE] notify skipped: no subscribed ELM characteristic");
     }
 
+}
+
+void BleElm327Server::selectReplyPath(NimBLECharacteristic* characteristic) {
+    if (characteristic == genericSerialChar) {
+        replyPath = ReplyPath::GenericSerial;
+        return;
+    }
+
+    replyPath = ReplyPath::Obdlink;
+}
+
+bool BleElm327Server::notifyPreferred(const String& response) {
+    if (replyPath == ReplyPath::GenericSerial) {
+        if (!genericSerialSubscribed) {
+            return false;
+        }
+
+        notifyChunked(genericSerialChar, response, "FFE1");
+        return true;
+    }
+
+    if (!obdlinkNotifySubscribed) {
+        return false;
+    }
+
+    notifyChunked(obdlinkNotifyChar, response, "FFF1");
+    return true;
 }
 
 void BleElm327Server::notifyChunked(NimBLECharacteristic* characteristic,

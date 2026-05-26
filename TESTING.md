@@ -109,6 +109,63 @@ ATRV -> firmware sends PID 0142 -> simulator returns 0142 voltage bytes -> app s
 
 If the simulator is not running or a real ECU does not support PID `0142`, verify that the app-facing response still remains prompt-terminated and does not stall.
 
+## SAE J1979 PID Scan
+
+`saej1979_scan.py` is a read-only scanner for real vehicles. It first asks the ECU which PID/info blocks are supported, then queries only the advertised read-only items.
+Common Mode 01 and Mode 02 values are decoded with SAE J1979 formulas, with raw responses kept in the output for unsupported or unknown PIDs.
+With no group flags it runs the same maximum read-only sweep as `--all-readonly`.
+
+Maximum read-only scan:
+
+```powershell
+python saej1979_scan.py --csv crv2013-saej1979.csv serial --port COM4 --baud 115200
+```
+
+Explicit maximum read-only scan:
+
+```powershell
+python saej1979_scan.py --all-readonly --csv crv2013-saej1979.csv serial --port COM4 --baud 115200
+```
+
+Only scan Mode 01 baseline live-data support:
+
+```powershell
+python saej1979_scan.py --baseline-only serial --port COM4 --baud 115200
+```
+
+TCP/WiFi:
+
+```powershell
+python saej1979_scan.py --csv crv2013-saej1979.csv tcp --host 192.168.1.242
+```
+
+BLE:
+
+```powershell
+python saej1979_scan.py --csv crv2013-saej1979.csv ble --address e0:8c:fe:a8:94:be
+```
+
+The scanner covers Mode `01`, Mode `02`, Mode `06`, Mode `09`, and DTC reads `03`/`07`/`0A`. It does not send Mode `04`, Mode `08`, or write/control services.
+
+## Clear DTC Utility
+
+`obd_clear_dtc.py` is intentionally separate from the read-only scanner. By default it performs a dry run and only prints the command plan.
+The command plan includes a short purpose for each command before anything is sent.
+
+Dry run:
+
+```powershell
+python obd_clear_dtc.py serial --port COM4 --baud 115200
+```
+
+Execute clear DTC intentionally:
+
+```powershell
+python obd_clear_dtc.py --execute --confirm CLEAR-DTC serial --port COM4 --baud 115200
+```
+
+Mode `04` can clear diagnostic trouble codes, freeze-frame data, and readiness-related diagnostic state.
+
 ## App Compatibility
 
 | App | Serial | WiFi/TCP | BLE | Notes |

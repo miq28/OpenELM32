@@ -23,10 +23,10 @@ This project emulates enough ELM327/OBDLink behavior to work with common OBD app
 
 | Command | Current behavior | Implementation note |
 | --- | --- | --- |
-| `ATZ` | Resets emulator state and reports `ELM327 v1.3a` | Supported. |
-| `ATI` | Reports `ELM327 v1.5` | Supported for app compatibility. |
-| `AT@1` | Reports `OBDLink MX` | OBDLink-style identity. |
-| `AT@2` | Reports configured device name | Useful for diagnostics. |
+| `ATZ` | Resets emulator state and reports `ELM327 v1.4b` | Supported. |
+| `ATI` | Reports `OBDLink CX` | Supported for app compatibility. |
+| `AT@1` | Reports `OBDLink CX` | OBDLink-style identity. |
+| `AT@2` | Reports configured broadcast name | Useful for diagnostics. |
 | `STI` | Reports STN identity | OBDLink/STN compatibility probe. |
 | `VTI` | Reports OBDLink identity | OBDLink compatibility probe. |
 | `ATE0/1` | Echo off/on | Supported. |
@@ -39,7 +39,7 @@ This project emulates enough ELM327/OBDLink behavior to work with common OBD app
 | `ATSP0`, `ATSP6` | Select automatic/CAN 11/500 | Supported. |
 | `ATDP`, `ATDPN` | Report protocol name/number | Supported. |
 | `ATTP...` | Try protocol | Stubbed OK, sets physical ECU addressing. |
-| `ATRV` | Reports fixed voltage | Stubbed as `14.2V`. |
+| `ATRV` | Requests OBD PID `0142` and reports voltage such as `14.1V` | Falls back to prompt-terminated app-facing behavior if no ECU voltage is available. |
 | `ATAT...`, `ATM...`, `ATST...`, `ATSW...` | Timing/memory parameters | Stubbed OK. |
 | `ATCAF...`, `ATAL`, `ATCEA...`, `ATPC`, `ATWS`, `ATCTM...`, `ATFI...` | Common compatibility commands | Stubbed OK. |
 | Unknown `AT...` | Returns `OK` | App-friendly fallback. |

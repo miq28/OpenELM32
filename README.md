@@ -1,4 +1,4 @@
-# ESP32 CAN/OBD Adapter Firmware
+# OpenELM32
 
 Firmware for ESP32-based CAN/RS485 boards that exposes an ELM327/OBDLink-compatible adapter over BLE, WiFi/TCP, and optional USB serial. The current focus is practical compatibility with OBD apps while keeping the ESP32 close to an adapter role: app commands are translated to CAN, and ECU behavior comes from a real vehicle or the included Python simulator.
 

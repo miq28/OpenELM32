@@ -60,7 +60,7 @@ FORMATTING_SEQUENCE = [
 
 IDENTITY_SEQUENCE = [
     ("STI", [r"STN"]),
-    ("VTI", [r"OBDLINK|ELM327|ESP32|WEACT"]),
+    ("VTI", [r"OBDLINK|ELM327|ESP32|WEACT|^\?>$"]),
     ("AT@2", [r"WEACT|ESP32|CAN|OBD"]),
     ("ATRV", [r"\d+\.\d+V"]),
     ("ATIGN", [r"OK"]),
@@ -104,7 +104,7 @@ FREEZE_FRAME_SEQUENCE = [
     ("ATH0", [r"OK"]),
     ("ATS0", [r"OK"]),
     ("ATSH7DF", [r"OK"]),
-    ("0101", [r"410181"]),
+    ("0101", [r"410181|410100"]),
     ("0200", [r"4200"]),
     ("020200", [r"4202002304|42022304"]),
     ("020400", [r"4204"]),

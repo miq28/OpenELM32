@@ -1,71 +1,179 @@
-ESP32RET
-=======
+# ESP32 CAN/OBD Adapter Firmware
 
-Reverse Engineering Tool running on ESP32 based hardware. Supports both EVTV ESP32 and Macchina A0
+Firmware for ESP32-based CAN/RS485 boards that exposes an ELM327/OBDLink-compatible adapter over BLE, WiFi/TCP, and optional USB serial. The current focus is practical compatibility with OBD apps while keeping the ESP32 close to an adapter role: app commands are translated to CAN, and ECU behavior comes from a real vehicle or the included Python simulator.
 
-There is a precompiled binary version of this program here:
-https://www.savvycan.com/ESP32RET_Updater.zip
+This project is based on [collin80/ESP32RET](https://github.com/collin80/ESP32RET). Credit goes to Collin Kidder and the original ESP32RET contributors for the base firmware, CAN infrastructure, console, and MIT-licensed foundation.
 
+## Current Scope
 
-#### Requirements:
+- ELM327-style command interface for common OBD apps.
+- OBDLink/STN identity and compatibility probes used by apps such as OBDLink, Torque, OBD Auto Doctor, and Car Scanner.
+- BLE ELM service using NimBLE, including OBDLink-style `FFF0/FFF1/FFF2` and generic serial `FFE0/FFE1` services.
+- WiFi/TCP ELM327 server on port `35000`.
+- Optional USB serial ELM327 mode with configurable baud.
+- CAN 11-bit 500 kbit ISO 15765-4 request/response path.
+- ISO-TP multi-frame ECU response assembly for responses such as VIN.
+- LAWICEL/SLCAN-style CAN access for simulator and tool workflows.
+- RS485 debug/console output for app-facing tests where USB serial is used by an OBD app.
+- Runtime profiles and app presets for switching between quiet OBD mode and development/debug mode.
 
-You will need the following to be able to compile the run this project:
+This is still firmware for testing and development. It is not a certified diagnostic interface.
 
-- [Arduino IDE](https://www.arduino.cc/en/Main/Software) Tested on 1.8.13
-- [Arduino-ESP32](https://github.com/espressif/arduino-esp32) - Allows for programming the ESP32 with the Arduino IDE
-- [esp32_can](https://github.com/collin80/esp32_can) - A CAN library that supports the built-in CAN
-- [esp32_mcp2517fd](https://github.com/collin80/esp32_mcp2517fd) - CAN library supporting MCP2517FD chips
-- [can_common](https://github.com/collin80/can_common) - Common structures and functionality for CAN libraries
+## Supported Hardware
 
-PLEASE NOTE: The Macchina A0 uses a WRover ESP32 module which includes PSRAM. But, do NOT use the WRover
-board in the Arduino IDE nor try to enable PSRAM. Doing so causes a fatal crash bug.
+The active PlatformIO environments are:
 
-The EVTV board has no PSRAM anyway.
+| Environment | Board target | Notes |
+| --- | --- | --- |
+| `waveshare-esp32-s3-rs485-can` | Waveshare ESP32-S3 RS485/CAN | Default PlatformIO environment. |
+| `weact-studio-can485-v1` | WeAct Studio CAN485 V1 | ESP32 CAN/RS485 board used for most recent OBD app testing. |
 
-This program is larger than the default partitioning scheme. You will need to use
-a larger scheme. The recommended way to do this: Tools -> Partition Scheme -> Minimal SPIFFS
+The original ESP32RET project supported other boards. This fork's README only documents the boards currently represented in `platformio.ini`.
 
-By default a wifi hotspot will be created by this firmware. The SSID is either ESP32RETSSID (for EVTV board) or
-A0RETSSID (For Macchina A0). The default WPA2 password is "aBigSecret" (Minus the quote marks) You can configure
-different settings from the serial port created when connected to USB. The serial port is 1 Megabit speed.
+## Build
 
-All libraries belong in %USERPROFILE%\Documents\Arduino\hardware\esp32\libraries (Windows) or ~/Arduino/hardware/esp32/libraries (Linux/Mac).
+This project uses PlatformIO, not the Arduino IDE.
 
-The canbus is supposed to be terminated on both ends of the bus. This should not be a problem as this firmware will be used to reverse engineer existing buses. However, do note that CAN buses should have a resistance from CAN_H to CAN_L of 60 ohms. This is affected by placing a 120 ohm resistor on both sides of the bus. If the bus resistance is not fairly close to 60 ohms then you may run into trouble.
+```powershell
+platformio run -e weact-studio-can485-v1
+platformio run -e waveshare-esp32-s3-rs485-can
+```
 
-#### The firmware is a work in progress. What works:
-- CAN0 / CAN1 reading and writing
-- Preferences are saved and loaded
-- Text console is active (configuration and CAN capture display)
-- Can connect as a GVRET device with SavvyCAN
-- LAWICEL support (somewhat tested. Still experimental)
-- Bluetooth works to create an ELM327 compatible interface (tested with Torque app)
+Upload and monitor ports are normally set locally in `platformio.ini` or passed on the command line.
 
-#### What does not work:
-- Digital and Analog I/O
+```powershell
+platformio run -e weact-studio-can485-v1 -t upload
+platformio device monitor -b 1000000
+```
 
-#### License:
+## Runtime Modes
 
-This software is MIT licensed:
+Use the serial console to switch the firmware between app-facing and development behavior.
 
+Recommended app-facing mode:
+
+```text
+APP=OBD
+```
+
+USB serial ELM327 presets:
+
+```text
+APP=SERIAL115200
+APP=SERIAL1000000
+```
+
+Development/debug preset:
+
+```text
+APP=DEV
+```
+
+Useful individual controls:
+
+```text
+PROFILE=OBD
+PROFILE=DEV
+ELM327SERIAL=1
+ELM327SERIAL=0
+SERBAUD=115200
+SERBAUD=1000000
+CANSTAT=0
+CANSTAT=1
+DEBUG=1
+DEBUGSER=0
+DEBUG485=1
+BTNAME=WEACT_CAN485_8CE0
+STATUS=1
+```
+
+For OBD app compatibility tests, keep app traffic clean: `PROFILE=OBD`, `CANSTAT=0`, debug enabled to RS485, and debug disabled on USB serial unless the test specifically needs USB debug.
+
+## App Transports
+
+| Transport | Purpose | Notes |
+| --- | --- | --- |
+| BLE | Primary mobile app path | Advertises OBDLink-style BLE services and reports the adapter model as `OBDLink CX` to apps. |
+| WiFi/TCP | Network ELM327 path | ELM server listens on TCP port `35000`. |
+| USB serial | PC app path | Enable with `ELM327SERIAL=1`; use `APP=SERIAL115200` for apps that cannot open 1 Mbit serial. |
+| RS485 | Debug and console | Preferred debug output when USB serial is being used by an OBD app. |
+
+## ECU Simulator
+
+Use `ecu_sim-win-slcan.py` when testing OBD responses without a real car. It provides CAN-side ECU behavior for smoke tests, VIN, DTC/freeze-frame checks, and ATRV/PID `0142` voltage behavior.
+
+```powershell
+python ecu_sim-win-slcan.py
+```
+
+Specific simulator baud:
+
+```powershell
+python ecu_sim-win-slcan.py --baud 2000000
+```
+
+Expected simulator VIN:
+
+```text
+JT2BG22K1V0123456
+```
+
+## Testing
+
+See [TESTING.md](TESTING.md) for the current manual and script test workflow.
+
+Common smoke tests:
+
+```powershell
+python elm327_compat_test.py serial --port COM5 --baud 1000000 --vin --invalid
+python elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin --invalid
+python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
+```
+
+Broader regression:
+
+```powershell
+python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --obdlink --dtc --freeze-frame --multi-ecu
+```
+
+Run one transport at a time when debugging app behavior. Serial, TCP, and BLE share the same emulator state, so concurrent app sessions can create misleading failures.
+
+## OBDLink Compatibility Notes
+
+The firmware intentionally reports OBDLink-compatible identity strings for app compatibility. BLE advertising name and app-reported model are separate:
+
+- BLE broadcast name comes from `BTNAME` or app command `STBTDN`.
+- Adapter/model identity remains `OBDLink CX` for commands such as `ATI`, `AT@1`, `STDI`, and Device Information reads.
+- `AT@2` and `STDIX` can expose the configured broadcast name for diagnostics.
+
+The OBDLink app can send broadcast-name changes with `STBTDN`, for example:
+
+```text
+STBTDN jontor%5s%5R
+```
+
+The OBDLink app enforces names shorter than 20 characters after suffix expansion. If a bad name is saved, reset it from the console:
+
+```text
+BTNAME=WEACT_CAN485_8CE0
+```
+
+## Documentation
+
+- [TESTING.md](TESTING.md): current test workflow and app compatibility checks.
+- [ELM327_COMMANDS.md](ELM327_COMMANDS.md): ELM327/OBDLink command compatibility matrix and roadmap.
+- `ecu_sim-win-slcan.py`: Windows SLCAN ECU simulator used for app-facing regression tests.
+
+## License and Attribution
+
+This fork keeps the original MIT license. See [LICENSE](LICENSE).
+
+Original project: [collin80/ESP32RET](https://github.com/collin80/ESP32RET)
+
+Original copyright:
+
+```text
 Copyright (c) 2014-2020 Collin Kidder, Michael Neuweiler
+```
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
+Substantial parts of the CAN, console, configuration, and firmware structure originate from ESP32RET. This fork adds and changes behavior around ELM327/OBDLink compatibility, BLE app behavior, simulator-driven OBD testing, and board-specific runtime workflows.

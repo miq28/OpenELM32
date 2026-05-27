@@ -182,6 +182,7 @@ struct EEPROMSettings
 
     bool enableVirtualOBD;
     bool enableElmSerial;
+    bool enableClassicBt;
     bool elmFastPoll;
     bool consoleCANOutput;
     bool canStatsOutput;

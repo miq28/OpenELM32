@@ -38,6 +38,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "can_manager.h"
 #include "debug.h"
 #include "BleElm327Server.h"
+#include "ClassicBtElm327Server.h"
 #include "obdlink_identity.h"
 
 static uint32_t elmTxnCounter = 0;
@@ -243,6 +244,11 @@ void ELM327Emu::useSerialTransport()
     activeTransport = TRANSPORT_SERIAL;
 }
 
+void ELM327Emu::useClassicBtTransport()
+{
+    activeTransport = TRANSPORT_CLASSIC_BT;
+}
+
 bool ELM327Emu::getMonitorMode()
 {
     return bMonitorMode;
@@ -371,6 +377,8 @@ const char *ELM327Emu::activeTransportName() const
         return "BLE";
     case TRANSPORT_SERIAL:
         return "USB";
+    case TRANSPORT_CLASSIC_BT:
+        return "BT";
     default:
         return "?";
     }
@@ -433,6 +441,17 @@ void ELM327Emu::sendTxBuffer()
         TransportEndpoint endpoint(&Serial);
 
         txBuffer.flushToEndpoint(endpoint);
+    }
+    else if (activeTransport == TRANSPORT_CLASSIC_BT)
+    {
+        ClassicBtElm327Server *classicBtServer = ClassicBtElm327Server::getInstance();
+        if (classicBtServer != nullptr)
+        {
+            String response((const char *)txBuffer.getBufferedBytes(), txBuffer.numAvailableBytes());
+            classicBtServer->sendResponse(response);
+        }
+
+        txBuffer.clearBufferedBytes();
     }
     else
     {
@@ -614,6 +633,10 @@ String ELM327Emu::processELMCmd(char *cmd)
     else
         lineEnding = String("\r");
 
+    const bool classicBtIdentity = activeTransport == TRANSPORT_CLASSIC_BT;
+    String adapterModel = classicBtIdentity ? String("OBDLink MX+") : String("OBDLink CX");
+    String adapterName = classicBtIdentity ? buildObdlinkMxClassicName() : String(settings.btName);
+
     if (cmd == nullptr || cmd[0] == 0)
     {
         return "";
@@ -655,7 +678,8 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "stdi"))
         {
-            retString.concat("OBDLink CX r1.0.0");
+            retString.concat(adapterModel);
+            retString.concat(" r1.0.0");
         }
         else if (!strcmp(cmd, "stmfr"))
         {
@@ -667,7 +691,9 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "stdix"))
         {
-            retString.concat("Device: OBDLink CX r1.0.0");
+            retString.concat("Device: ");
+            retString.concat(adapterModel);
+            retString.concat(" r1.0.0");
             retString.concat(lineEnding);
             retString.concat("Firmware: STN2310 v5.6.19 [2024.02.01]");
             retString.concat(lineEnding);
@@ -679,7 +705,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat("BL Ver: 4.3");
             retString.concat(lineEnding);
             retString.concat("BT Dev Name: ");
-            retString.concat(settings.btName);
+            retString.concat(adapterName);
         }
         else if (!strcmp(cmd, "stprs"))
         {
@@ -912,15 +938,15 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "at@1"))
         {
-            retString.concat("OBDLink CX");
+            retString.concat(adapterModel);
         }
         else if (!strcmp(cmd, "at@2"))
         {
-            retString.concat(settings.btName);
+            retString.concat(adapterName);
         }
         else if (!strcmp(cmd, "ati"))
         {
-            retString.concat("OBDLink CX");
+            retString.concat(adapterModel);
         }
         else if (!strncmp(cmd, "atat", 4))
         {

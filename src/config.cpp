@@ -37,8 +37,10 @@ void printEEPROMSettings(const EEPROMSettings &cfg)
                   cfg.sendingBus);
     consolePrintf("enableLawicel        : %s\n",
                   cfg.enableLawicel ? "true" : "false");
-    consolePrintf("enableLawicel        : %s\n",
+    consolePrintf("enableVirtualOBD     : %s\n",
                   cfg.enableVirtualOBD ? "true" : "false");
+    consolePrintf("enableClassicBt      : %s\n",
+                  cfg.enableClassicBt ? "true" : "false");
 
     // ------------------------------------------------------------------
     // WiFi

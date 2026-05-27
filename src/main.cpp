@@ -42,6 +42,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "rgb_status.h"
 #include "console_io.h"
 #include "BleElm327Server.h"
+#include "ClassicBtElm327Server.h"
+#include "obdlink_identity.h"
 
 static constexpr uint32_t DEFAULT_SERIAL_BAUD = 115200;
 
@@ -99,6 +101,7 @@ void printPrefs()
                   prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_OBD) == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
     consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", true));
     consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", true));
+    consolePrintf("classicBt=%d\n", prefs.getBool("classicBt", false));
     consolePrintf("elmFastPoll=%d\n", prefs.getBool("elmFastPoll", false));
     consolePrintf("consoleCAN=%d\n", prefs.getBool("consoleCAN", false));
     consolePrintf("canStats=%d\n",
@@ -226,6 +229,7 @@ uint8_t espChipRevision;
 
 ELM327Emu elmEmulator;
 BleElm327Server bleElm327Server(elmEmulator, "OBDLink CX", "OBD Solutions LLC", "STN2310 v5.6.19");
+ClassicBtElm327Server classicBtElm327Server(elmEmulator);
 
 WiFiManager wifiManager;
 
@@ -349,6 +353,7 @@ void loadSettings()
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
     settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
     settings.enableElmSerial = prefs.getBool("elmSerial", true);
+    settings.enableClassicBt = prefs.getBool("classicBt", false);
     settings.elmFastPoll = prefs.getBool("elmFastPoll", false);
     settings.consoleCANOutput = prefs.getBool("consoleCAN", false);
     settings.canStatsOutput = prefs.getBool("canStats",
@@ -564,10 +569,30 @@ void setup()
 
     delay(100); // just to make sure all the debug output is done before we start doing things that might mess with it
 
-    consolePrintln("Starting BLE");
-    bleElm327Server.begin(settings.btName);
+    if (settings.enableClassicBt)
+    {
+        String classicName = buildObdlinkMxClassicName();
+        consolePrintln("Starting Classic Bluetooth SPP");
+        if (!classicBtElm327Server.begin(classicName.c_str()))
+        {
+            consolePrintln("Classic Bluetooth SPP unavailable; starting BLE");
+            bleElm327Server.begin(settings.btName);
+        }
+    }
+    else
+    {
+        consolePrintln("Starting BLE");
+        bleElm327Server.begin(settings.btName);
+    }
 
-    wifiManager.setup();
+    if (settings.enableClassicBt)
+    {
+        consolePrintln("WiFi skipped in Classic Bluetooth SPP mode");
+    }
+    else
+    {
+        wifiManager.setup();
+    }
 
     canManager.setup();
     canManager.setSendToConsole(settings.enableElmSerial ? false : settings.consoleCANOutput);
@@ -704,7 +729,11 @@ void loop()
     //}
 
     canManager.loop();
-    /*if (!settings.enableBT)*/ wifiManager.loop();
+    if (!settings.enableClassicBt)
+    {
+        wifiManager.loop();
+    }
+    classicBtElm327Server.loop();
 
     size_t tcpLength = tcpTxBuffer.numAvailableBytes();
     size_t usbLength = usbTxBuffer.numAvailableBytes();

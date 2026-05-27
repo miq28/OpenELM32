@@ -39,6 +39,7 @@
 #include "Logger.h"
 #include "debug.h"
 #include "console_io.h"
+#include "ClassicBtElm327Server.h"
 
 extern void CANHandler();
 
@@ -80,6 +81,8 @@ static void printRuntimeStatus()
     Logger::console("  USB ELM=%s SERBAUD=%lu",
                     settings.enableElmSerial ? "ON" : "OFF",
                     (unsigned long)settings.serialBaud);
+    Logger::console("  CLASSICBT=%i",
+                    settings.enableClassicBt ? 1 : 0);
     Logger::console("  CONSOLECAN=%i CANSTAT=%i",
                     settings.consoleCANOutput ? 1 : 0,
                     settings.canStatsOutput ? 1 : 0);
@@ -158,8 +161,9 @@ void SerialConsole::printMenu()
     Logger::console("BTNAME=%s - Set advertised Bluetooth name", settings.btName);
     Logger::console("SENDBUS=%i - Set which CAN bus to send messages from ELM327 emulator", settings.sendingBus);
     Logger::console("ELM327SERIAL=%i - Enable ELM327 command mode on USB serial (0=Dis, 1=En)", settings.enableElmSerial);
+    Logger::console("CLASSICBT=%i - Enable Classic Bluetooth SPP on supported boards after reboot (0=Dis, 1=En)", settings.enableClassicBt);
     Logger::console("ELMFASTPOLL=%i - Return physical Mode 01 replies immediately (0=Dis, 1=En)", settings.elmFastPoll);
-    Logger::console("APP=<preset> - Apply preset (OBD, SERIAL115200, SERIAL1000000, DEV)");
+    Logger::console("APP=<preset> - Apply preset (OBD, SERIAL115200, SERIAL1000000, BTCLASSIC, DEV)");
     Logger::console("STATUS=1 - Show current runtime mode");
     Logger::console("RESETCONFIG=1 - Clear saved config; reboot applies defaults");
     consolePrintln();
@@ -585,6 +589,22 @@ void SerialConsole::handleConfigCmd()
 
         writeEEPROM = true;
     }
+    else if (cmdString == String("CLASSICBT") || cmdString == String("BTCLASSIC"))
+    {
+        settings.enableClassicBt = (newValue != 0);
+
+#if OPENELM_CLASSIC_BT_SUPPORTED
+        Logger::console("Classic Bluetooth SPP %s after reboot",
+                        settings.enableClassicBt ? "ENABLED" : "DISABLED");
+#else
+        if (settings.enableClassicBt)
+            Logger::console("Classic Bluetooth SPP requested, but this board target does not support Classic BT");
+        else
+            Logger::console("Classic Bluetooth SPP disabled");
+#endif
+
+        writeEEPROM = true;
+    }
     else if (cmdString == String("SENDBUS"))
     {
         if (newValue < 0)
@@ -676,6 +696,7 @@ void SerialConsole::handleConfigCmd()
 
         if (app == String("OBD"))
         {
+            settings.enableClassicBt = false;
             applyObdRuntimeProfile();
             Logger::console("App preset OBD: OBD quiet profile for app-facing transports, RS485 debug on");
             writeEEPROM = true;
@@ -683,6 +704,7 @@ void SerialConsole::handleConfigCmd()
         else if (app == String("SERIAL115200") || app == String("SERIAL") ||
                  app == String("OBDAUTODOCTOR") || app == String("OBDAD") || app == String("AUTODOCTOR"))
         {
+            settings.enableClassicBt = false;
             settings.enableElmSerial = true;
             settings.serialBaud = 115200;
             applyObdRuntimeProfile();
@@ -693,6 +715,7 @@ void SerialConsole::handleConfigCmd()
         }
         else if (app == String("SERIAL1000000") || app == String("FASTSERIAL") || app == String("FAST"))
         {
+            settings.enableClassicBt = false;
             settings.enableElmSerial = true;
             settings.serialBaud = 1000000;
             applyObdRuntimeProfile();
@@ -700,8 +723,19 @@ void SerialConsole::handleConfigCmd()
             writeEEPROM = true;
             applyUsbSerialBaud(settings.serialBaud);
         }
+        else if (app == String("BTCLASSIC") || app == String("CLASSICBT") ||
+                 app == String("MX") || app == String("MXPLUS"))
+        {
+            settings.enableClassicBt = true;
+            settings.enableElmSerial = false;
+            settings.wifiMode = 0;
+            applyObdRuntimeProfile();
+            Logger::console("App preset BTCLASSIC: Classic Bluetooth SPP as OBDLink MX+ ####, WiFi off after reboot");
+            writeEEPROM = true;
+        }
         else if (app == String("DEV"))
         {
+            settings.enableClassicBt = false;
             settings.enableElmSerial = false;
             settings.serialBaud = 1000000;
             settings.consoleCANOutput = true;
@@ -713,7 +747,7 @@ void SerialConsole::handleConfigCmd()
         }
         else
         {
-            Logger::console("Invalid app preset! Use APP=OBD, APP=SERIAL115200, APP=SERIAL1000000, or APP=DEV");
+            Logger::console("Invalid app preset! Use APP=OBD, APP=SERIAL115200, APP=SERIAL1000000, APP=BTCLASSIC, or APP=DEV");
         }
     }
     else if (cmdString == String("STATUS"))
@@ -861,6 +895,7 @@ void SerialConsole::handleConfigCmd()
         prefs.putInt("sendingBus", settings.sendingBus);
         prefs.putBool("enableLawicel", settings.enableLawicel);
         prefs.putBool("elmSerial", settings.enableElmSerial);
+        prefs.putBool("classicBt", settings.enableClassicBt);
         prefs.putBool("elmFastPoll", settings.elmFastPoll);
         prefs.putBool("consoleCAN", settings.consoleCANOutput);
         prefs.putBool("canStats", settings.canStatsOutput);

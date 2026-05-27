@@ -65,6 +65,7 @@ public:
     void setWiFiClient(WiFiClient *client);
     void useBLETransport();
     void useSerialTransport();
+    void useClassicBtTransport();
     void sendCmd(String cmd);
     void processCANReply(CAN_FRAME &frame);
     bool getMonitorMode();
@@ -77,7 +78,8 @@ private:
     {
         TRANSPORT_WIFI,
         TRANSPORT_BLE,
-        TRANSPORT_SERIAL
+        TRANSPORT_SERIAL,
+        TRANSPORT_CLASSIC_BT
     };
 
     WiFiClient *mClient;

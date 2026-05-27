@@ -124,6 +124,12 @@ APP=SERIAL115200
 APP=SERIAL1000000
 ```
 
+Classic Bluetooth SPP preset, for boards that support ESP32 Classic Bluetooth:
+
+```text
+APP=BTCLASSIC
+```
+
 Development/debug preset:
 
 ```text
@@ -137,6 +143,8 @@ PROFILE=OBD
 PROFILE=DEV
 ELM327SERIAL=1
 ELM327SERIAL=0
+CLASSICBT=1
+CLASSICBT=0
 SERBAUD=115200
 SERBAUD=1000000
 CANSTAT=0
@@ -156,6 +164,7 @@ For OBD app compatibility tests, keep app traffic clean: `PROFILE=OBD`, `CANSTAT
 | Transport | Purpose | Notes |
 | --- | --- | --- |
 | BLE | Primary mobile app path | Advertises OBDLink-style BLE services and reports the adapter model as `OBDLink CX` to apps. |
+| Classic Bluetooth SPP | Android head-unit path on supported ESP32 boards | Enable with `APP=BTCLASSIC` or `CLASSICBT=1`, then reboot. Currently intended for the WeAct ESP32 target and advertises as `OBDLink MX+ ####`, where the suffix is MAC-derived. BLE and WiFi/TCP are not started in this mode to preserve heap. |
 | WiFi/TCP | Network ELM327 path | ELM server listens on TCP port `35000`. |
 | USB serial | PC app path | Enable with `ELM327SERIAL=1`; use `APP=SERIAL115200` for apps that cannot open 1 Mbit serial. This preset disables RS485 debug. |
 | RS485 | Debug and console | Preferred debug output when USB serial is being used by an OBD app. |
@@ -222,6 +231,7 @@ The firmware intentionally reports OBDLink-compatible identity strings for app c
 - BLE broadcast name comes from `BTNAME` or app command `STBTDN`.
 - Adapter/model identity remains `OBDLink CX` for commands such as `ATI`, `AT@1`, `STDI`, and Device Information reads.
 - `AT@2` and `STDIX` can expose the configured broadcast name for diagnostics.
+- Classic Bluetooth SPP mode uses `OBDLink MX+` for app-facing identity commands and an `OBDLink MX+ ####` broadcast name because it is the Classic Bluetooth-compatible identity path.
 
 The OBDLink app can send broadcast-name changes with `STBTDN`, for example:
 

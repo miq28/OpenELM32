@@ -42,10 +42,12 @@ The console presets are faster when switching test modes:
 APP=OBD
 APP=SERIAL115200
 APP=SERIAL1000000
+APP=BTCLASSIC
 APP=DEV
 ```
 
 `APP=SERIAL115200` keeps RS485 debug off by default. Re-enable it with `DEBUG485=1` only when you need a separate debug console.
+`APP=BTCLASSIC` enables Classic Bluetooth SPP on supported ESP32 boards after reboot. It is intended for the WeAct target and advertises as `OBDLink MX+ ####`; BLE and WiFi/TCP are not started in this mode.
 
 To reset saved settings to the same default state used by a newly flashed board:
 
@@ -237,6 +239,9 @@ Mode `04` can clear diagnostic trouble codes, freeze-frame data, and readiness-r
 | Torque | Not primary | Works | Works | BLE tested historically. |
 | OBDWiz | Unsupported | Unsupported | Unsupported | Rejects the adapter during OBDLink vendor validation. |
 | OBDLink app | Not primary | Not primary | Works with current BLE path | Use for OBDLink/ST command compatibility checks. |
+
+Classic Bluetooth SPP is a separate app path. Test it manually from Android/head-unit apps after setting `APP=BTCLASSIC` and rebooting. The device name should appear as `OBDLink MX+ ####`.
+In Classic Bluetooth mode, identity commands should report `OBDLink MX+` instead of the BLE `OBDLink CX` identity.
 
 ## OBDLink BLE Checks
 

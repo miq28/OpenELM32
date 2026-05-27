@@ -47,7 +47,7 @@ APP=DEV
 ```
 
 `APP=SERIAL115200` keeps RS485 debug off by default. Re-enable it with `DEBUG485=1` only when you need a separate debug console.
-`APP=BTCLASSIC` enables Classic Bluetooth SPP on supported ESP32 boards after reboot. It is intended for the WeAct target and advertises as `OBDLink MX+ ####`; BLE and WiFi/TCP are not started in this mode.
+`APP=BTCLASSIC` enables Classic Bluetooth SPP on supported ESP32 boards after reboot. It is intended for the WeAct target and advertises as `OpenELM32 ####`; BLE and WiFi/TCP are not started in this mode.
 
 To reset saved settings to the same default state used by a newly flashed board:
 
@@ -92,16 +92,16 @@ BLE:
 python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
 ```
 
-Fuller regression when an app-facing change touches identity, OBDLink probes, DTCs, freeze-frame data, or multi-ECU responses:
+Fuller regression when an app-facing change touches identity probes, DTCs, freeze-frame data, or multi-ECU responses:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --obdlink --dtc --freeze-frame --multi-ecu
+python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --dtc --freeze-frame --multi-ecu
 ```
 
-Include OBDLink/STN batched command parsing when changing `STBC`, pipe-delimited command handling, or response formatting:
+Include ST-style batched command parsing when changing `STBC`, pipe-delimited command handling, or response formatting:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --obdlink --batching
+python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vendor-probes --batching
 ```
 
 Simulator-only DTC clear validation:
@@ -237,30 +237,29 @@ Mode `04` can clear diagnostic trouble codes, freeze-frame data, and readiness-r
 | OBD Auto Doctor | Works | Works | Works | Serial may require `SERBAUD=115200`. |
 | Car Scanner | Works | Works | Works | Validate after firmware changes. |
 | Torque | Not primary | Works | Works | BLE tested historically. |
-| OBDWiz | Unsupported | Unsupported | Unsupported | Rejects the adapter during OBDLink vendor validation. |
-| OBDLink app | Not primary | Not primary | Works with current BLE path | Use for OBDLink/ST command compatibility checks. |
+| OBDWiz | Unsupported | Unsupported | Unsupported | Rejects non-vendor adapters during vendor validation. |
 
-Classic Bluetooth SPP is a separate app path. Test it manually from Android/head-unit apps after setting `APP=BTCLASSIC` and rebooting. The device name should appear as `OBDLink MX+ ####`.
-In Classic Bluetooth mode, identity commands should report `OBDLink MX+` instead of the BLE `OBDLink CX` identity.
+Classic Bluetooth SPP is a separate app path. Test it manually from Android/head-unit apps after setting `APP=BTCLASSIC` and rebooting. The device name should appear as `OpenELM32 ####`.
+In Classic Bluetooth mode, identity commands should report the same `OpenELM32` adapter identity.
 
-## OBDLink BLE Checks
+## BLE Identity Checks
 
-The advertised BLE name can be changed by the OBDLink app with `STBTDN`. The app enforces a broadcast name shorter than 20 characters, so use 19 characters or fewer after suffix expansion.
+The advertised BLE name can be changed by compatible apps with `STBTDN`. Some apps enforce short broadcast names, so use 19 characters or fewer after suffix expansion.
 
 Useful identity checks:
 
 ```text
-ATI    -> OBDLink CX
-AT@1   -> OBDLink CX
+ATI    -> OpenELM32
+AT@1   -> OpenELM32
 AT@2   -> configured broadcast name
-STI    -> STN2310 v5.6.19
-STMFR  -> OBD Solutions LLC
-STDI   -> OBDLink CX r1.0.0
-STDIX  -> OBDLink CX details and current BT Dev Name
-STSN   -> 12-digit OBDLink-style serial with a MAC-derived numeric suffix
+STI    -> OpenELM32 firmware identity
+STMFR  -> OpenELM Project
+STDI   -> OpenELM32 r1.0.0
+STDIX  -> OpenELM32 details and current BT Dev Name
+STSN   -> OpenELM32 serial with a MAC-derived numeric suffix
 ```
 
-Example broadcast-name write sent by the OBDLink app:
+Example broadcast-name write:
 
 ```text
 STBTDN jontor%5s%5R

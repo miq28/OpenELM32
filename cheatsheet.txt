@@ -315,7 +315,7 @@ python elm327_compat_test.py tcp --host 192.168.1.242 --port 35000
 
 pip install bleak
 python elm327_compat_test.py ble --name WEACT_CAN485_8CE0
-python elm327_compat_test.py ble --name "OBDLink CX"
+python elm327_compat_test.py ble --name "OpenELM32"
 
 python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin
 python elm327_compat_test.py serial --port COM5 --baud 1000000 --vin
@@ -337,10 +337,10 @@ python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.2
 
 
 python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --dtc --multi-ecu
-python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --obdlink
+python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vendor-probes
 
 safe to test to real car
-python run_elm327_tests.py --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --serial COM4 --serial-baud 115200 --vin --dtc --freeze-frame --identity --formatting --invalid --obdlink
+python run_elm327_tests.py --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --serial COM4 --serial-baud 115200 --vin --dtc --freeze-frame --identity --formatting --invalid --vendor-probes
 
 
 Best Next Improvements

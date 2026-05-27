@@ -43,7 +43,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "console_io.h"
 #include "BleElm327Server.h"
 #include "ClassicBtElm327Server.h"
-#include "obdlink_identity.h"
+#include "openelm_identity.h"
 
 static constexpr uint32_t DEFAULT_SERIAL_BAUD = 115200;
 
@@ -228,7 +228,7 @@ char otaFilename[100];
 uint8_t espChipRevision;
 
 ELM327Emu elmEmulator;
-BleElm327Server bleElm327Server(elmEmulator, "OBDLink CX", "OBD Solutions LLC", "STN2310 v5.6.19");
+BleElm327Server bleElm327Server(elmEmulator, OPENELM_MODEL_NAME, OPENELM_MANUFACTURER, OPENELM_FIRMWARE_REVISION);
 ClassicBtElm327Server classicBtElm327Server(elmEmulator);
 
 WiFiManager wifiManager;
@@ -360,7 +360,8 @@ void loadSettings()
                                             settings.runtimeProfile != RUNTIME_PROFILE_OBD);
     settings.sendingBus = prefs.getInt("sendingBus", 0);
 
-    if (prefs.getString("btname", settings.btName, 32) == 0)
+    if (prefs.getString("btname", settings.btName, 32) == 0 ||
+        strncmp(settings.btName, "OBDLink", 7) == 0)
     {
         strcpy(settings.btName, deviceName);
     }
@@ -571,7 +572,7 @@ void setup()
 
     if (settings.enableClassicBt)
     {
-        String classicName = buildObdlinkMxClassicName();
+        String classicName = buildOpenElmClassicName();
         consolePrintln("Starting Classic Bluetooth SPP");
         if (!classicBtElm327Server.begin(classicName.c_str()))
         {

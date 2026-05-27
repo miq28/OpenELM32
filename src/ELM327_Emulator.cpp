@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "debug.h"
 #include "BleElm327Server.h"
 #include "ClassicBtElm327Server.h"
-#include "obdlink_identity.h"
+#include "openelm_identity.h"
 
 static uint32_t elmTxnCounter = 0;
 
@@ -115,7 +115,7 @@ static void appendSuffix(String &out, const char *source, uint8_t count)
 
 static String resolveBluetoothNameTemplate(const char *nameTemplate)
 {
-    String serialNumber = buildObdlinkSerialNumber();
+    String serialNumber = buildOpenElmSerialNumber();
     uint64_t mac = ESP.getEfuseMac();
     char macHex[13];
     sprintf(macHex,
@@ -634,8 +634,8 @@ String ELM327Emu::processELMCmd(char *cmd)
         lineEnding = String("\r");
 
     const bool classicBtIdentity = activeTransport == TRANSPORT_CLASSIC_BT;
-    String adapterModel = classicBtIdentity ? String("OBDLink MX+") : String("OBDLink CX");
-    String adapterName = classicBtIdentity ? buildObdlinkMxClassicName() : String(settings.btName);
+    String adapterModel = classicBtIdentity ? String(OPENELM_CLASSIC_MODEL_NAME) : String(OPENELM_MODEL_NAME);
+    String adapterName = classicBtIdentity ? buildOpenElmClassicName() : String(settings.btName);
 
     if (cmd == nullptr || cmd[0] == 0)
     {
@@ -664,17 +664,17 @@ String ELM327Emu::processELMCmd(char *cmd)
     }
 
     // ============================================================
-    // OBDLink / STN command support
+    // ST-style compatibility commands used by several OBD applications.
     // ============================================================
     if (!strncmp(cmd, "st", 2))
     {
         if (!strcmp(cmd, "sti"))
         {
-            retString.concat("STN2310 v5.6.19");
+            retString.concat(OPENELM_FIRMWARE_REVISION);
         }
         else if (!strcmp(cmd, "stix"))
         {
-            retString.concat("STN2310 v5.6.19 [2024.02.01]");
+            retString.concat(OPENELM_FIRMWARE_REVISION);
         }
         else if (!strcmp(cmd, "stdi"))
         {
@@ -683,11 +683,11 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "stmfr"))
         {
-            retString.concat("OBD Solutions LLC");
+            retString.concat(OPENELM_MANUFACTURER);
         }
         else if (!strcmp(cmd, "stsn"))
         {
-            retString.concat(buildObdlinkSerialNumber());
+            retString.concat(buildOpenElmSerialNumber());
         }
         else if (!strcmp(cmd, "stdix"))
         {
@@ -695,12 +695,14 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat(adapterModel);
             retString.concat(" r1.0.0");
             retString.concat(lineEnding);
-            retString.concat("Firmware: STN2310 v5.6.19 [2024.02.01]");
+            retString.concat("Firmware: ");
+            retString.concat(OPENELM_FIRMWARE_REVISION);
             retString.concat(lineEnding);
-            retString.concat("Mfr: OBD Solutions LLC");
+            retString.concat("Mfr: ");
+            retString.concat(OPENELM_MANUFACTURER);
             retString.concat(lineEnding);
             retString.concat("Serial #: ");
-            retString.concat(buildObdlinkSerialNumber());
+            retString.concat(buildOpenElmSerialNumber());
             retString.concat(lineEnding);
             retString.concat("BL Ver: 4.3");
             retString.concat(lineEnding);

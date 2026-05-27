@@ -1,6 +1,6 @@
 # ELM327 Compatibility Matrix
 
-This project emulates enough ELM327/OBDLink behavior to work with common OBD apps over serial, WiFi/TCP, and BLE. `ELM327DS.pdf` is useful as a command reference, but implementation should stay driven by real app behavior and regression tests.
+This project emulates enough ELM327-compatible behavior to work with common OBD apps over serial, WiFi/TCP, and BLE. Implementation should stay driven by real app behavior and regression tests; third-party reference manuals are not redistributed in this repository.
 
 ## Current Scope
 
@@ -24,11 +24,11 @@ This project emulates enough ELM327/OBDLink behavior to work with common OBD app
 | Command | Current behavior | Implementation note |
 | --- | --- | --- |
 | `ATZ` | Resets emulator state and reports `ELM327 v1.4b` | Supported. |
-| `ATI` | Reports `OBDLink CX` | Supported for app compatibility. |
-| `AT@1` | Reports `OBDLink CX` | OBDLink-style identity. |
+| `ATI` | Reports `OpenELM32` | Supported for app compatibility. |
+| `AT@1` | Reports `OpenELM32` | Adapter identity. |
 | `AT@2` | Reports configured broadcast name | Useful for diagnostics. |
-| `STI` | Reports STN identity | OBDLink/STN compatibility probe. |
-| `VTI` | Reports OBDLink identity | OBDLink compatibility probe. |
+| `STI` | Reports OpenELM32 firmware identity | Compatibility probe. |
+| `VTI` | Reports OpenELM32 identity | Compatibility probe. |
 | `ATE0/1` | Echo off/on | Supported. |
 | `ATL0/1` | Linefeed off/on | Supported. |
 | `ATS0/1` | Spaces off/on | Supported. |

@@ -4,13 +4,14 @@
 #include <NimBLEDevice.h>
 
 #include "ELM327_Emulator.h"
+#include "openelm_identity.h"
 
 class BleElm327Server {
 public:
     BleElm327Server(ELM327Emu& emulator,
-                    const char* modelName = "OBDLink CX",
-                    const char* manufacturer = "OBD Solutions LLC",
-                    const char* firmwareRevision = "STN2310 v5.6.19");
+                    const char* modelName = OPENELM_MODEL_NAME,
+                    const char* manufacturer = OPENELM_MANUFACTURER,
+                    const char* firmwareRevision = OPENELM_FIRMWARE_REVISION);
 
     void begin(const char* advertisedName = nullptr);
     void notifyResponse(const String& response);
@@ -18,7 +19,7 @@ public:
 
 private:
     enum class ReplyPath {
-        Obdlink,
+        PrimarySerial,
         GenericSerial,
     };
 
@@ -31,14 +32,14 @@ private:
     const char* manufacturer;
     const char* firmwareRevision;
 
-    NimBLECharacteristic* obdlinkNotifyChar = nullptr;
+    NimBLECharacteristic* primaryNotifyChar = nullptr;
     NimBLECharacteristic* genericSerialChar = nullptr;
     bool clientConnected = false;
-    bool obdlinkNotifySubscribed = false;
+    bool primaryNotifySubscribed = false;
     bool genericSerialSubscribed = false;
     uint16_t peerMtu = 23;
     String lastResponse;
-    ReplyPath replyPath = ReplyPath::Obdlink;
+    ReplyPath replyPath = ReplyPath::PrimarySerial;
 
     ServerCallbacks* serverCallbacks = nullptr;
     SerialCallbacks* serialCallbacks = nullptr;

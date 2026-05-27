@@ -16,14 +16,14 @@ import sys
 import time
 
 
-OBDLINK_WRITE_UUID = "0000fff2-0000-1000-8000-00805f9b34fb"
-OBDLINK_NOTIFY_UUID = "0000fff1-0000-1000-8000-00805f9b34fb"
+PRIMARY_WRITE_UUID = "0000fff2-0000-1000-8000-00805f9b34fb"
+PRIMARY_NOTIFY_UUID = "0000fff1-0000-1000-8000-00805f9b34fb"
 
 
 DEFAULT_SEQUENCE = [
     ("ATZ", [r"ELM327"]),
-    ("ATI", [r"ELM327|OBDLINK"]),
-    ("AT@1", [r"OBDLink|ELM327|ESP32|WEACT"]),
+    ("ATI", [r"ELM327|OPENELM32"]),
+    ("AT@1", [r"OpenELM32|ELM327|ESP32|WEACT"]),
     ("ATE0", [r"OK"]),
     ("ATL0", [r"OK"]),
     ("ATS0", [r"OK"]),
@@ -60,19 +60,19 @@ FORMATTING_SEQUENCE = [
 
 IDENTITY_SEQUENCE = [
     ("STI", [r"STN"]),
-    ("VTI", [r"OBDLINK|ELM327|ESP32|WEACT|^\?>$"]),
+    ("VTI", [r"OPENELM32|ELM327|ESP32|WEACT|^\?>$"]),
     ("AT@2", [r"WEACT|ESP32|CAN|OBD"]),
     ("ATRV", [r"\d+\.\d+V"]),
     ("ATIGN", [r"OK"]),
 ]
 
-OBDLINK_SEQUENCE = [
-    ("STI", [r"STN\d+V\d+\.\d+\.\d+"]),
-    ("STIX", [r"STN\d+V\d+\.\d+\.\d+"]),
-    ("STDI", [r"OBDLINK"]),
-    ("STDIX", [r"OBDLINK.*STN.*OBDSOLUTIONS|STN.*OBDLINK.*OBDSOLUTIONS"]),
-    ("STMFR", [r"OBDSOLUTIONS"]),
-    ("STSN", [r"\d{8,}"]),
+VENDOR_PROBE_SEQUENCE = [
+    ("STI", [r"OPENELM32"]),
+    ("STIX", [r"OPENELM32"]),
+    ("STDI", [r"OPENELM32"]),
+    ("STDIX", [r"OPENELM32.*OPENELMPROJECT|OPENELMPROJECT.*OPENELM32"]),
+    ("STMFR", [r"OPENELMPROJECT"]),
+    ("STSN", [r"OE32\d{4}"]),
     ("STPR", [r"6"]),
     ("STPRS", [r"CAN11/500|ISO15765-4"]),
     ("STSLCS", [r"UART_SLEEP.*OBD_SLEEP.*VOLT_SLEEP"]),
@@ -136,7 +136,7 @@ def build_sections(
     include_invalid=False,
     include_formatting=False,
     include_identity=False,
-    include_obdlink=False,
+    include_vendor_probes=False,
     include_dtc=False,
     include_clear_dtc=False,
     include_freeze_frame=False,
@@ -157,8 +157,8 @@ def build_sections(
     if include_identity:
         sections.append(("IDENTITY", IDENTITY_SEQUENCE))
 
-    if include_obdlink:
-        sections.append(("OBDLINK", OBDLINK_SEQUENCE))
+    if include_vendor_probes:
+        sections.append(("VENDOR PROBES", VENDOR_PROBE_SEQUENCE))
 
     if include_dtc:
         sections.append(("DTC READ", DTC_SEQUENCE))
@@ -317,14 +317,14 @@ class BleElmConnection(ElmConnection):
 
         self.client = self.BleakClient(target)
         await self.client.connect()
-        await self.client.start_notify(OBDLINK_NOTIFY_UUID, self._on_notify)
+        await self.client.start_notify(PRIMARY_NOTIFY_UUID, self._on_notify)
 
     def _on_notify(self, _sender, data):
         if self.loop is not None and self.queue is not None:
             self.loop.call_soon_threadsafe(self.queue.put_nowait, bytes(data))
 
     async def async_write(self, data):
-        await self.client.write_gatt_char(OBDLINK_WRITE_UUID, data, response=False)
+        await self.client.write_gatt_char(PRIMARY_WRITE_UUID, data, response=False)
 
     async def async_read_until_prompt(self, timeout):
         deadline = time.monotonic() + timeout
@@ -353,7 +353,7 @@ class BleElmConnection(ElmConnection):
 
     async def async_close(self):
         if self.client is not None and self.client.is_connected:
-            await self.client.stop_notify(OBDLINK_NOTIFY_UUID)
+            await self.client.stop_notify(PRIMARY_NOTIFY_UUID)
             await self.client.disconnect()
 
 
@@ -374,7 +374,7 @@ def run_sequence(
     include_invalid=False,
     include_formatting=False,
     include_identity=False,
-    include_obdlink=False,
+    include_vendor_probes=False,
     include_dtc=False,
     include_clear_dtc=False,
     include_freeze_frame=False,
@@ -387,7 +387,7 @@ def run_sequence(
         include_invalid,
         include_formatting,
         include_identity,
-        include_obdlink,
+        include_vendor_probes,
         include_dtc,
         include_clear_dtc,
         include_freeze_frame,
@@ -424,7 +424,7 @@ async def run_ble_sequence(
     include_invalid=False,
     include_formatting=False,
     include_identity=False,
-    include_obdlink=False,
+    include_vendor_probes=False,
     include_dtc=False,
     include_clear_dtc=False,
     include_freeze_frame=False,
@@ -437,7 +437,7 @@ async def run_ble_sequence(
         include_invalid,
         include_formatting,
         include_identity,
-        include_obdlink,
+        include_vendor_probes,
         include_dtc,
         include_clear_dtc,
         include_freeze_frame,
@@ -483,12 +483,12 @@ def main(argv):
     serial_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     serial_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     serial_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
-    serial_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
+    serial_parser.add_argument("--vendor-probes", action="store_true", help="also test ST-style identity and capability probes")
     serial_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
     serial_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     serial_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     serial_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
-    serial_parser.add_argument("--batching", action="store_true", help="also test OBDLink/STN batched command parsing")
+    serial_parser.add_argument("--batching", action="store_true", help="also test ST-style batched command parsing")
 
     tcp_parser = subparsers.add_parser("tcp")
     tcp_parser.add_argument("--host", required=True)
@@ -497,12 +497,12 @@ def main(argv):
     tcp_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     tcp_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     tcp_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
-    tcp_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
+    tcp_parser.add_argument("--vendor-probes", action="store_true", help="also test ST-style identity and capability probes")
     tcp_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
     tcp_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     tcp_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     tcp_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
-    tcp_parser.add_argument("--batching", action="store_true", help="also test OBDLink/STN batched command parsing")
+    tcp_parser.add_argument("--batching", action="store_true", help="also test ST-style batched command parsing")
 
     ble_parser = subparsers.add_parser("ble")
     ble_parser.add_argument("--name")
@@ -511,12 +511,12 @@ def main(argv):
     ble_parser.add_argument("--invalid", action="store_true", help="also test invalid-command rejection")
     ble_parser.add_argument("--formatting", action="store_true", help="also test spaced and mixed-case ELM commands")
     ble_parser.add_argument("--identity", action="store_true", help="also test adapter identity and capability probes")
-    ble_parser.add_argument("--obdlink", action="store_true", help="also test public OBDLink/STN FRPM identity probes")
+    ble_parser.add_argument("--vendor-probes", action="store_true", help="also test ST-style identity and capability probes")
     ble_parser.add_argument("--dtc", action="store_true", help="also test OBD DTC services 03, 07, and 0A")
     ble_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     ble_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     ble_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
-    ble_parser.add_argument("--batching", action="store_true", help="also test OBDLink/STN batched command parsing")
+    ble_parser.add_argument("--batching", action="store_true", help="also test ST-style batched command parsing")
 
     parser.add_argument("--timeout", type=float, default=1.5)
 
@@ -532,7 +532,7 @@ def main(argv):
                 args.invalid,
                 args.formatting,
                 args.identity,
-                args.obdlink,
+                args.vendor_probes,
                 args.dtc,
                 args.clear_dtc,
                 args.freeze_frame,
@@ -555,7 +555,7 @@ def main(argv):
             args.invalid,
             args.formatting,
             args.identity,
-            args.obdlink,
+            args.vendor_probes,
             args.dtc,
             args.clear_dtc,
             args.freeze_frame,

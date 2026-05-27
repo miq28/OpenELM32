@@ -1,7 +1,7 @@
 #include "BleElm327Server.h"
 #include "debug.h"
 #include "console_io.h"
-#include "obdlink_identity.h"
+#include "openelm_identity.h"
 
 namespace {
 constexpr uint16_t BLE_FAST_CONN_MIN_INTERVAL = 6;   // 7.5 ms, units of 1.25 ms
@@ -54,10 +54,10 @@ public:
 
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
         owner.clientConnected = pServer->getConnectedCount() > 0;
-        owner.obdlinkNotifySubscribed = false;
+        owner.primaryNotifySubscribed = false;
         owner.genericSerialSubscribed = false;
         owner.peerMtu = 23;
-        owner.replyPath = ReplyPath::Obdlink;
+        owner.replyPath = ReplyPath::PrimarySerial;
         consolePrintf("[BLE] Client disconnected. Reason: %d (%s). Connected clients: %u/%u\n",
                       reason,
                       NimBLEUtils::returnCodeToString(reason),
@@ -125,8 +125,8 @@ public:
     void onSubscribe(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override {
         const bool subscribed = subValue != 0;
 
-        if (characteristic == owner.obdlinkNotifyChar) {
-            owner.obdlinkNotifySubscribed = subscribed;
+        if (characteristic == owner.primaryNotifyChar) {
+            owner.primaryNotifySubscribed = subscribed;
         } else if (characteristic == owner.genericSerialChar) {
             owner.genericSerialSubscribed = subscribed;
         }
@@ -187,7 +187,7 @@ void BleElm327Server::begin(const char* advertisedName) {
     server->setCallbacks(serverCallbacks);
 
     NimBLEService* deviceInfo = server->createService("180A");
-    String bleSerialNumber = buildObdlinkSerialNumber();
+    String bleSerialNumber = buildOpenElmSerialNumber();
     addDeviceInfoCharacteristic(deviceInfo, "2A29", manufacturer);
     addDeviceInfoCharacteristic(deviceInfo, "2A24", modelName);
     addDeviceInfoCharacteristic(deviceInfo, "2A25", bleSerialNumber.c_str());
@@ -195,19 +195,19 @@ void BleElm327Server::begin(const char* advertisedName) {
     addDeviceInfoCharacteristic(deviceInfo, "2A27", "r1.0.0");
     addDeviceInfoCharacteristic(deviceInfo, "2A28", "2024.02.01");
 
-    NimBLEService* obdlinkService = server->createService("0000FFF0-0000-1000-8000-00805F9B34FB");
-    obdlinkNotifyChar = obdlinkService->createCharacteristic(
+    NimBLEService* primaryService = server->createService("0000FFF0-0000-1000-8000-00805F9B34FB");
+    primaryNotifyChar = primaryService->createCharacteristic(
         "0000FFF1-0000-1000-8000-00805F9B34FB",
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
-    obdlinkNotifyChar->setCallbacks(serialCallbacks);
-    obdlinkNotifyChar->setValue(lastResponse);
+    primaryNotifyChar->setCallbacks(serialCallbacks);
+    primaryNotifyChar->setValue(lastResponse);
 
-    NimBLECharacteristic* obdlinkWriteChar = obdlinkService->createCharacteristic(
+    NimBLECharacteristic* primaryWriteChar = primaryService->createCharacteristic(
         "0000FFF2-0000-1000-8000-00805F9B34FB",
         NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
     );
-    obdlinkWriteChar->setCallbacks(serialCallbacks);
+    primaryWriteChar->setCallbacks(serialCallbacks);
 
     NimBLEService* genericService = server->createService("0000FFE0-0000-1000-8000-00805F9B34FB");
     genericSerialChar = genericService->createCharacteristic(
@@ -248,8 +248,8 @@ void BleElm327Server::notifyResponse(const String& response) {
 
     bool notified = notifyPreferred(response);
 
-    if (!notified && obdlinkNotifySubscribed) {
-        notifyChunked(obdlinkNotifyChar, response, "FFF1");
+    if (!notified && primaryNotifySubscribed) {
+        notifyChunked(primaryNotifyChar, response, "FFF1");
         notified = true;
     }
 
@@ -270,7 +270,7 @@ void BleElm327Server::selectReplyPath(NimBLECharacteristic* characteristic) {
         return;
     }
 
-    replyPath = ReplyPath::Obdlink;
+    replyPath = ReplyPath::PrimarySerial;
 }
 
 bool BleElm327Server::notifyPreferred(const String& response) {
@@ -283,11 +283,11 @@ bool BleElm327Server::notifyPreferred(const String& response) {
         return true;
     }
 
-    if (!obdlinkNotifySubscribed) {
+    if (!primaryNotifySubscribed) {
         return false;
     }
 
-    notifyChunked(obdlinkNotifyChar, response, "FFF1");
+    notifyChunked(primaryNotifyChar, response, "FFF1");
     return true;
 }
 

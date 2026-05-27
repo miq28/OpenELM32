@@ -1,6 +1,6 @@
 # OpenELM32
 
-Firmware for ESP32-based CAN/RS485 boards that exposes an ELM327/OBDLink-compatible adapter over BLE, WiFi/TCP, and optional USB serial. The current focus is practical compatibility with OBD apps while keeping the ESP32 close to an adapter role: app commands are translated to CAN, and ECU behavior comes from a real vehicle or the included Python simulator.
+Firmware for ESP32-based CAN/RS485 boards that exposes an ELM327-compatible adapter over BLE, WiFi/TCP, and optional USB serial. The current focus is practical compatibility with OBD apps while keeping the ESP32 close to an adapter role: app commands are translated to CAN, and ECU behavior comes from a real vehicle or the included Python simulator.
 
 This project is based on [collin80/ESP32RET](https://github.com/collin80/ESP32RET). Credit goes to Collin Kidder and the original ESP32RET contributors for the base firmware, CAN infrastructure, console, and MIT-licensed foundation.
 
@@ -13,8 +13,8 @@ Treat real-car testing as potentially dangerous. Start in listen-only or simulat
 ## Current Scope
 
 - ELM327-style command interface for common OBD apps.
-- OBDLink/STN identity and compatibility probes used by apps such as OBDLink, Torque, OBD Auto Doctor, and Car Scanner.
-- BLE ELM service using NimBLE, including OBDLink-style `FFF0/FFF1/FFF2` and generic serial `FFE0/FFE1` services.
+- Common adapter identity and compatibility probes used by apps such as Torque, OBD Auto Doctor, and Car Scanner.
+- BLE ELM service using NimBLE, including `FFF0/FFF1/FFF2` and generic serial `FFE0/FFE1` services.
 - WiFi/TCP ELM327 server on port `35000`.
 - Optional USB serial ELM327 mode with configurable baud.
 - CAN 11-bit 500 kbit ISO 15765-4 request/response path.
@@ -163,8 +163,8 @@ For OBD app compatibility tests, keep app traffic clean: `PROFILE=OBD`, `CANSTAT
 
 | Transport | Purpose | Notes |
 | --- | --- | --- |
-| BLE | Primary mobile app path | Advertises OBDLink-style BLE services and reports the adapter model as `OBDLink CX` to apps. |
-| Classic Bluetooth SPP | Android head-unit path on supported ESP32 boards | Enable with `APP=BTCLASSIC` or `CLASSICBT=1`, then reboot. Currently intended for the WeAct ESP32 target and advertises as `OBDLink MX+ ####`, where the suffix is MAC-derived. BLE and WiFi/TCP are not started in this mode to preserve heap. |
+| BLE | Primary mobile app path | Advertises OpenELM32 and exposes BLE serial services used by common OBD apps. |
+| Classic Bluetooth SPP | Android head-unit path on supported ESP32 boards | Enable with `APP=BTCLASSIC` or `CLASSICBT=1`, then reboot. Currently intended for the WeAct ESP32 target and advertises as `OpenELM32 ####`, where the suffix is MAC-derived. BLE and WiFi/TCP are not started in this mode to preserve heap. |
 | WiFi/TCP | Network ELM327 path | ELM server listens on TCP port `35000`. |
 | USB serial | PC app path | Enable with `ELM327SERIAL=1`; use `APP=SERIAL115200` for apps that cannot open 1 Mbit serial. This preset disables RS485 debug. |
 | RS485 | Debug and console | Preferred debug output when USB serial is being used by an OBD app. |
@@ -219,27 +219,27 @@ python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
 Broader regression:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --obdlink --dtc --freeze-frame --multi-ecu
+python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --dtc --freeze-frame --multi-ecu
 ```
 
 Run one transport at a time when debugging app behavior. Serial, TCP, and BLE share the same emulator state, so concurrent app sessions can create misleading failures.
 
-## OBDLink Compatibility Notes
+## Compatibility Notes
 
-The firmware intentionally reports OBDLink-compatible identity strings for app compatibility. BLE advertising name and app-reported model are separate:
+The firmware reports OpenELM32 identity strings by default. BLE advertising name and app-reported model are separate:
 
 - BLE broadcast name comes from `BTNAME` or app command `STBTDN`.
-- Adapter/model identity remains `OBDLink CX` for commands such as `ATI`, `AT@1`, `STDI`, and Device Information reads.
+- Adapter/model identity is `OpenELM32` for commands such as `ATI`, `AT@1`, `STDI`, and Device Information reads.
 - `AT@2` and `STDIX` can expose the configured broadcast name for diagnostics.
-- Classic Bluetooth SPP mode uses `OBDLink MX+` for app-facing identity commands and an `OBDLink MX+ ####` broadcast name because it is the Classic Bluetooth-compatible identity path.
+- Classic Bluetooth SPP mode uses the same OpenELM32 identity and an `OpenELM32 ####` broadcast name.
 
-The OBDLink app can send broadcast-name changes with `STBTDN`, for example:
+Some apps can send broadcast-name changes with `STBTDN`, for example:
 
 ```text
 STBTDN jontor%5s%5R
 ```
 
-The OBDLink app enforces names shorter than 20 characters after suffix expansion. If a bad name is saved, reset it from the console:
+Some apps enforce short broadcast names after suffix expansion. If a bad name is saved, reset it from the console:
 
 ```text
 BTNAME=WEACT_CAN485_8CE0
@@ -248,7 +248,9 @@ BTNAME=WEACT_CAN485_8CE0
 ## Documentation
 
 - [TESTING.md](TESTING.md): current test workflow and app compatibility checks.
-- [ELM327_COMMANDS.md](ELM327_COMMANDS.md): ELM327/OBDLink command compatibility matrix and roadmap.
+- [ELM327_COMMANDS.md](ELM327_COMMANDS.md): ELM327 command compatibility matrix and roadmap.
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): license, attribution, and trademark notices.
+- [REFERENCE_LINKS.md](REFERENCE_LINKS.md): links for external reference material not redistributed in this repository.
 - `ecu_sim-win-slcan.py`: Windows SLCAN ECU simulator used for app-facing regression tests.
 
 ## License and Attribution
@@ -263,4 +265,6 @@ Original copyright:
 Copyright (c) 2014-2020 Collin Kidder, Michael Neuweiler
 ```
 
-Substantial parts of the CAN, console, configuration, and firmware structure originate from ESP32RET. This fork adds and changes behavior around ELM327/OBDLink compatibility, BLE app behavior, simulator-driven OBD testing, and board-specific runtime workflows.
+Substantial parts of the CAN, console, configuration, and firmware structure originate from ESP32RET. This fork adds and changes behavior around ELM327-compatible app behavior, BLE app behavior, simulator-driven OBD testing, and board-specific runtime workflows.
+
+ELM327 is a trademark of Elm Electronics Inc. OBDLink is a trademark of OBD Solutions LLC. This project is independent and is not affiliated with, sponsored by, or endorsed by those trademark owners. Product and protocol names are used only to describe compatibility targets.

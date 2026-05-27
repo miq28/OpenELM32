@@ -40,6 +40,7 @@
 #include "debug.h"
 #include "console_io.h"
 #include "ClassicBtElm327Server.h"
+#include "openelm_identity.h"
 
 extern void CANHandler();
 
@@ -730,7 +731,8 @@ void SerialConsole::handleConfigCmd()
             settings.enableElmSerial = false;
             settings.wifiMode = 0;
             applyObdRuntimeProfile();
-            Logger::console("App preset BTCLASSIC: Classic Bluetooth SPP as OBDLink MX+ ####, WiFi off after reboot");
+            Logger::console("App preset BTCLASSIC: Classic Bluetooth SPP as %s####, WiFi off after reboot",
+                            OPENELM_CLASSIC_NAME_PREFIX);
             writeEEPROM = true;
         }
         else if (app == String("DEV"))

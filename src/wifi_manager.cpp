@@ -231,8 +231,12 @@ void WiFiManager::setup()
     {
         consolePrintln("Wifi mode: OFF");
         WiFi.mode(WIFI_OFF);
+        DEBUG("NET INIT DONE\n");
+        return;
     }
 
+    // Give lwip stack time to initialize before creating sockets
+    delay(500);
     setupServer();
 
     DEBUG("NET INIT DONE\n");

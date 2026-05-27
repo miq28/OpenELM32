@@ -95,7 +95,7 @@ For OBD app compatibility tests, keep app traffic clean: `PROFILE=OBD`, `CANSTAT
 | --- | --- | --- |
 | BLE | Primary mobile app path | Advertises OBDLink-style BLE services and reports the adapter model as `OBDLink CX` to apps. |
 | WiFi/TCP | Network ELM327 path | ELM server listens on TCP port `35000`. |
-| USB serial | PC app path | Enable with `ELM327SERIAL=1`; use `APP=SERIAL115200` for apps that cannot open 1 Mbit serial. |
+| USB serial | PC app path | Enable with `ELM327SERIAL=1`; use `APP=SERIAL115200` for apps that cannot open 1 Mbit serial. This preset disables RS485 debug. |
 | RS485 | Debug and console | Preferred debug output when USB serial is being used by an OBD app. |
 
 ## ECU Simulator

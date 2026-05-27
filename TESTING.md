@@ -45,6 +45,8 @@ APP=SERIAL1000000
 APP=DEV
 ```
 
+`APP=SERIAL115200` keeps RS485 debug off by default. Re-enable it with `DEBUG485=1` only when you need a separate debug console.
+
 Recommended OBD app testing baseline:
 
 ```text

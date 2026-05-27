@@ -671,7 +671,8 @@ void SerialConsole::handleConfigCmd()
             settings.enableElmSerial = true;
             settings.serialBaud = 115200;
             applyObdRuntimeProfile();
-            Logger::console("App preset SERIAL115200: USB ELM327 at 115200, OBD quiet profile, RS485 debug on");
+            debug_to_rs485 = false;
+            Logger::console("App preset SERIAL115200: USB ELM327 at 115200, OBD quiet profile, RS485 debug off");
             writeEEPROM = true;
             applyUsbSerialBaud(settings.serialBaud);
         }

@@ -76,13 +76,25 @@ After a crash, keep the matching `.pio/build/<env>/firmware.elf` from the flashe
 & "$env:USERPROFILE\.platformio\penv\Scripts\esp-coredump.exe" --chip esp32s3 --port COM8 --baud 921600 info_corefile --off 0x811000 --save-core waveshare-crash.core .pio\build\waveshare-esp32-s3-rs485-can\firmware.elf
 ```
 
+Linux:
+
+```bash
+~/.platformio/penv/bin/esp-coredump --chip esp32s3 --port /dev/ttyACM0 --baud 921600 info_corefile --off 0x811000 --save-core waveshare-crash.core .pio/build/waveshare-esp32-s3-rs485-can/firmware.elf
+```
+
 For WeAct:
 
 ```powershell
 & "$env:USERPROFILE\.platformio\penv\Scripts\esp-coredump.exe" --chip esp32 --port COM8 --baud 921600 info_corefile --off 0x420000 --save-core weact-crash.core .pio\build\weact-studio-can485-v1\firmware.elf
 ```
 
-Change `COM8` to the board's USB port. Decode before rebuilding when possible, because the ELF should match the crashed firmware.
+Linux:
+
+```bash
+~/.platformio/penv/bin/esp-coredump --chip esp32 --port /dev/ttyUSB0 --baud 921600 info_corefile --off 0x420000 --save-core weact-crash.core .pio/build/weact-studio-can485-v1/firmware.elf
+```
+
+Change `COM8`, `/dev/ttyACM0`, or `/dev/ttyUSB0` to the board's USB port. On Linux, add the user to `dialout` if serial access is denied. Decode before rebuilding when possible, because the ELF should match the crashed firmware.
 
 ## Runtime Modes
 

@@ -167,7 +167,8 @@ BleElm327Server::BleElm327Server(ELM327Emu& emulator,
 
 void BleElm327Server::begin(const char* advertisedName) {
     g_bleServer = this;
-    const char* bleName = advertisedName && advertisedName[0] ? advertisedName : modelName;
+    (void)advertisedName;
+    const char* bleName = modelName;
 
     serverCallbacks = new ServerCallbacks(*this);
     serialCallbacks = new SerialCallbacks(*this);

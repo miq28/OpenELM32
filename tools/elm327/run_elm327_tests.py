@@ -2,9 +2,13 @@
 """Run ELM327 compatibility checks sequentially across transports."""
 
 import argparse
+from pathlib import Path
 import subprocess
 import sys
 import time
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+COMPAT_TEST = str(SCRIPT_DIR / "elm327_compat_test.py")
 
 
 def run_command(name, command, allow_retry=False):
@@ -73,7 +77,7 @@ def main(argv):
             "serial",
             [
                 sys.executable,
-                "elm327_compat_test.py",
+                COMPAT_TEST,
                 *common,
                 "serial",
                 "--port",
@@ -90,7 +94,7 @@ def main(argv):
             "tcp",
             [
                 sys.executable,
-                "elm327_compat_test.py",
+                COMPAT_TEST,
                 *common,
                 "tcp",
                 "--host",
@@ -107,7 +111,7 @@ def main(argv):
             "ble",
             [
                 sys.executable,
-                "elm327_compat_test.py",
+                COMPAT_TEST,
                 *common,
                 "ble",
                 "--address",

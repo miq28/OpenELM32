@@ -7,8 +7,11 @@ changes vehicle state. By default it only prints the commands it would send.
 
 import argparse
 import asyncio
+from pathlib import Path
 import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "elm327"))
 
 from elm327_compat_test import (
     BleElmConnection,

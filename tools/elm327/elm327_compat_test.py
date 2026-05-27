@@ -3,9 +3,9 @@
 Small ELM327 compatibility smoke test for this firmware.
 
 Examples:
-  python elm327_compat_test.py serial --port COM5 --baud 1000000
-  python elm327_compat_test.py tcp --host 192.168.4.1 --port 35000
-  python elm327_compat_test.py ble --name WEACT_CAN485_8CE0
+  python tools/elm327/elm327_compat_test.py serial --port COM5 --baud 1000000
+  python tools/elm327/elm327_compat_test.py tcp --host 192.168.4.1 --port 35000
+  python tools/elm327/elm327_compat_test.py ble --name WEACT_CAN485_8CE0
 """
 
 import argparse

@@ -6,7 +6,7 @@ This project emulates enough ELM327-compatible behavior to work with common OBD 
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Core ELM prompt/echo/line ending behavior | Supported | Covered by `elm327_compat_test.py`. |
+| Core ELM prompt/echo/line ending behavior | Supported | Covered by `tools/elm327/elm327_compat_test.py`. |
 | Serial, WiFi/TCP, BLE transports | Supported | BLE app behavior still depends heavily on the Windows BLE stack. |
 | CAN 11-bit 500 kbit protocol reporting | Supported | `ATDP`, `ATDPN`, `ATSP0`, and `ATSP6` are covered. |
 | Single-frame OBD requests | Supported | Examples: `0100`, `0101`, standard mode/PID requests. |
@@ -50,7 +50,7 @@ This project emulates enough ELM327-compatible behavior to work with common OBD 
 ## Recommended Roadmap
 
 1. **Keep ELM command compatibility tested**
-   - Expand `elm327_compat_test.py` only when a real app sends a new probe.
+   - Expand `tools/elm327/elm327_compat_test.py` only when a real app sends a new probe.
    - Prefer harmless stubs for commands that apps only use for capability discovery.
 
 2. **Complete ISO-TP transport**
@@ -64,7 +64,7 @@ This project emulates enough ELM327-compatible behavior to work with common OBD 
    - Keep the ESP32 acting as adapter first. Let the ECU or simulator decide positive/negative responses.
 
 4. **Expand DTC-focused test scenarios**
-   - `ecu_sim-win-slcan.py` has known DTC responses and simulator-only Mode 04 clear state.
+   - `tools/ecu/ecu_sim-win-slcan.py` has known DTC responses and simulator-only Mode 04 clear state.
    - Keep OBD services `03`, `04`, `07`, and `0A` covered before adding UDS service `19`.
    - Verify app output with OBD Auto Doctor and Car Scanner.
 
@@ -77,12 +77,12 @@ This project emulates enough ELM327-compatible behavior to work with common OBD 
 Baseline all-transport regression:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity
+python tools/elm327/run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity
 ```
 
 DTC simulator checks:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --dtc
-python run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --clear-dtc
+python tools/elm327/run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --dtc
+python tools/elm327/run_elm327_tests.py --serial COM5 --tcp 192.168.1.242 --vin --clear-dtc
 ```

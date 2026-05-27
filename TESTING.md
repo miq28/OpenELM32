@@ -1,6 +1,6 @@
 # Testing
 
-This project uses the ESP32 firmware as an ELM327-compatible adapter. ECU behavior should normally be supplied by a real ECU or by `ecu_sim-win-slcan.py` on the CAN side.
+This project uses the ESP32 firmware as an ELM327-compatible adapter. ECU behavior should normally be supplied by a real ECU or by `tools/ecu/ecu_sim-win-slcan.py` on the CAN side.
 
 See `ELM327_COMMANDS.md` for the ELM compatibility matrix and diagnostics roadmap.
 
@@ -12,13 +12,13 @@ Build and flash testing is intentionally left to the person with the hardware at
 2. Start the CAN-side ECU simulator when testing OBD responses:
 
    ```powershell
-   python ecu_sim-win-slcan.py
+   python tools/ecu/ecu_sim-win-slcan.py
    ```
 
    To run the simulator at a specific serial baud:
 
    ```powershell
-   python ecu_sim-win-slcan.py --baud 2000000
+   python tools/ecu/ecu_sim-win-slcan.py --baud 2000000
    ```
 
 3. For USB serial ELM327 mode, enable it once from the serial console:
@@ -77,42 +77,42 @@ Run one transport at a time. The ELM emulator has shared state, so running seria
 Serial:
 
 ```powershell
-python elm327_compat_test.py serial --port COM5 --baud 1000000 --vin --invalid
+python tools/elm327/elm327_compat_test.py serial --port COM5 --baud 1000000 --vin --invalid
 ```
 
 TCP/WiFi:
 
 ```powershell
-python elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin --invalid
+python tools/elm327/elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin --invalid
 ```
 
 BLE:
 
 ```powershell
-python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
+python tools/elm327/elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
 ```
 
 Fuller regression when an app-facing change touches identity probes, DTCs, freeze-frame data, or multi-ECU responses:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --dtc --freeze-frame --multi-ecu
+python tools/elm327/run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --dtc --freeze-frame --multi-ecu
 ```
 
 Include ST-style batched command parsing when changing `STBC`, pipe-delimited command handling, or response formatting:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vendor-probes --batching
+python tools/elm327/run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vendor-probes --batching
 ```
 
 Simulator-only DTC clear validation:
 
 ```powershell
-python elm327_compat_test.py serial --port COM5 --baud 1000000 --dtc --clear-dtc
+python tools/elm327/elm327_compat_test.py serial --port COM5 --baud 1000000 --dtc --clear-dtc
 ```
 
-Use `--clear-dtc` only with `ecu_sim-win-slcan.py` while validating this branch. On a real vehicle, OBD service `04` can erase diagnostic trouble codes, freeze-frame data, and readiness-related diagnostic state.
+Use `--clear-dtc` only with `tools/ecu/ecu_sim-win-slcan.py` while validating this branch. On a real vehicle, OBD service `04` can erase diagnostic trouble codes, freeze-frame data, and readiness-related diagnostic state.
 
-Expected VIN response from `ecu_sim-win-slcan.py`:
+Expected VIN response from `tools/ecu/ecu_sim-win-slcan.py`:
 
 ```text
 4902014A5432424732324B315630313233343536
@@ -130,62 +130,62 @@ If the simulator is not running or a real ECU does not support PID `0142`, verif
 
 ## SAE J1979 PID Scan
 
-`saej1979_scan.py` is a read-only scanner for real vehicles. It first asks the ECU which PID/info blocks are supported, then queries only the advertised read-only items.
+`tools/vehicle/saej1979_scan.py` is a read-only scanner for real vehicles. It first asks the ECU which PID/info blocks are supported, then queries only the advertised read-only items.
 Common Mode 01 and Mode 02 values are decoded with SAE J1979 formulas, with raw responses kept in the output for unsupported or unknown PIDs.
 With no group flags it runs the same maximum read-only sweep as `--all-readonly`.
 
 Maximum read-only scan:
 
 ```powershell
-python saej1979_scan.py --csv crv2013-saej1979.csv serial --port COM4 --baud 115200
+python tools/vehicle/saej1979_scan.py --csv data/scans/crv2013-saej1979.csv serial --port COM4 --baud 115200
 ```
 
 Explicit maximum read-only scan:
 
 ```powershell
-python saej1979_scan.py --all-readonly --csv crv2013-saej1979.csv serial --port COM4 --baud 115200
+python tools/vehicle/saej1979_scan.py --all-readonly --csv data/scans/crv2013-saej1979.csv serial --port COM4 --baud 115200
 ```
 
 Only scan Mode 01 baseline live-data support:
 
 ```powershell
-python saej1979_scan.py --baseline-only serial --port COM4 --baud 115200
+python tools/vehicle/saej1979_scan.py --baseline-only serial --port COM4 --baud 115200
 ```
 
 TCP/WiFi:
 
 ```powershell
-python saej1979_scan.py --csv crv2013-saej1979.csv tcp --host 192.168.1.242
+python tools/vehicle/saej1979_scan.py --csv data/scans/crv2013-saej1979.csv tcp --host 192.168.1.242
 ```
 
 BLE:
 
 ```powershell
-python saej1979_scan.py --csv crv2013-saej1979.csv ble --address e0:8c:fe:a8:94:be
+python tools/vehicle/saej1979_scan.py --csv data/scans/crv2013-saej1979.csv ble --address e0:8c:fe:a8:94:be
 ```
 
 The scanner covers Mode `01`, Mode `02`, Mode `06`, Mode `09`, and DTC reads `03`/`07`/`0A`. It does not send Mode `04`, Mode `08`, or write/control services.
 
 ## ELM327 Transport Rate Test
 
-`elm327_rate_test.py` measures raw ELM request/response rate without app polling behavior. Use it with the Python ECU simulator to compare USB serial, WiFi/TCP, and BLE using the same PID command.
+`tools/elm327/elm327_rate_test.py` measures raw ELM request/response rate without app polling behavior. Use it with the Python ECU simulator to compare USB serial, WiFi/TCP, and BLE using the same PID command.
 
 Serial:
 
 ```powershell
-python elm327_rate_test.py --count 100 --quiet serial --port COM4 --baud 115200
+python tools/elm327/elm327_rate_test.py --count 100 --quiet serial --port COM4 --baud 115200
 ```
 
 TCP/WiFi:
 
 ```powershell
-python elm327_rate_test.py --count 100 --quiet tcp --host 192.168.1.242
+python tools/elm327/elm327_rate_test.py --count 100 --quiet tcp --host 192.168.1.242
 ```
 
 BLE:
 
 ```powershell
-python elm327_rate_test.py --count 100 --quiet ble --address e0:8c:fe:a8:94:be
+python tools/elm327/elm327_rate_test.py --count 100 --quiet ble --address e0:8c:fe:a8:94:be
 ```
 
 The default command is `010C` and expected response marker is `410C`. Use `--command` and `--expect` to test a different PID.
@@ -202,7 +202,7 @@ With `ELMFASTPOLL=1`, physical-header Mode 01 single-frame replies return immedi
 Compare before and after with:
 
 ```powershell
-python elm327_rate_test.py --count 100 --quiet --header 7E0 ble --address e0:8c:fe:a8:94:be
+python tools/elm327/elm327_rate_test.py --count 100 --quiet --header 7E0 ble --address e0:8c:fe:a8:94:be
 ```
 
 Disable it again with:
@@ -213,19 +213,19 @@ ELMFASTPOLL=0
 
 ## Clear DTC Utility
 
-`obd_clear_dtc.py` is intentionally separate from the read-only scanner. By default it performs a dry run and only prints the command plan.
+`tools/vehicle/obd_clear_dtc.py` is intentionally separate from the read-only scanner. By default it performs a dry run and only prints the command plan.
 The command plan includes a short purpose for each command before anything is sent.
 
 Dry run:
 
 ```powershell
-python obd_clear_dtc.py serial --port COM4 --baud 115200
+python tools/vehicle/obd_clear_dtc.py serial --port COM4 --baud 115200
 ```
 
 Execute clear DTC intentionally:
 
 ```powershell
-python obd_clear_dtc.py --execute --confirm CLEAR-DTC serial --port COM4 --baud 115200
+python tools/vehicle/obd_clear_dtc.py --execute --confirm CLEAR-DTC serial --port COM4 --baud 115200
 ```
 
 Mode `04` can clear diagnostic trouble codes, freeze-frame data, and readiness-related diagnostic state.
@@ -279,7 +279,7 @@ Before committing firmware behavior changes:
 
 1. Build locally with pioarduino.
 2. Flash the ESP32.
-3. Run at least one `elm327_compat_test.py` transport with `--vin --invalid`.
+3. Run at least one `tools/elm327/elm327_compat_test.py` transport with `--vin --invalid`.
 4. Before a release, run serial, TCP/WiFi, and BLE smoke tests.
 5. Check one real app that matters for the change.
 6. Confirm RS485 debug output still works; RS485 is the dedicated debug channel.

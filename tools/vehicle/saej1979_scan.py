@@ -5,9 +5,12 @@ import argparse
 import asyncio
 import csv
 import json
+from pathlib import Path
 import re
 import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "elm327"))
 
 from elm327_compat_test import (
     BleElmConnection,

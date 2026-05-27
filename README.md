@@ -75,7 +75,7 @@ $env:OPENELM_DEBUG_BUILD='1'; $env:OPENELM_CORE_DEBUG_LEVEL='5'; platformio run 
 
 Clear those environment variables before returning to normal builds.
 
-When USB serial is used as the OBD app transport, panic output still goes to the ESP-IDF console UART and may not appear on RS485. The Waveshare build uses `waveshare_16mb_ota_coredump.csv`, which reserves a flash coredump partition so intermittent crashes can be recovered after reboot instead of being caught live on the USB console.
+When USB serial is used as the OBD app transport, panic output still goes to the ESP-IDF console UART and may not appear on RS485. The Waveshare build uses `partitions/waveshare_16mb_ota_coredump.csv`, which reserves a flash coredump partition so intermittent crashes can be recovered after reboot instead of being caught live on the USB console.
 
 After a crash, keep the matching `.pio/build/<env>/firmware.elf` from the flashed build. For Waveshare, decode the stored coredump with:
 
@@ -186,16 +186,16 @@ Use `ELM327SERIAL=0` when you want USB serial to be a raw CAN tool interface ins
 
 ## ECU Simulator
 
-Use `ecu_sim-win-slcan.py` when testing OBD responses without a real car. It provides CAN-side ECU behavior for smoke tests, VIN, DTC/freeze-frame checks, and ATRV/PID `0142` voltage behavior.
+Use `tools/ecu/ecu_sim-win-slcan.py` when testing OBD responses without a real car. It provides CAN-side ECU behavior for smoke tests, VIN, DTC/freeze-frame checks, and ATRV/PID `0142` voltage behavior.
 
 ```powershell
-python ecu_sim-win-slcan.py
+python tools/ecu/ecu_sim-win-slcan.py
 ```
 
 Specific simulator baud:
 
 ```powershell
-python ecu_sim-win-slcan.py --baud 2000000
+python tools/ecu/ecu_sim-win-slcan.py --baud 2000000
 ```
 
 Expected simulator VIN:
@@ -211,15 +211,15 @@ See [TESTING.md](TESTING.md) for the current manual and script test workflow.
 Common smoke tests:
 
 ```powershell
-python elm327_compat_test.py serial --port COM5 --baud 1000000 --vin --invalid
-python elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin --invalid
-python elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
+python tools/elm327/elm327_compat_test.py serial --port COM5 --baud 1000000 --vin --invalid
+python tools/elm327/elm327_compat_test.py tcp --host 192.168.1.242 --port 35000 --vin --invalid
+python tools/elm327/elm327_compat_test.py ble --address e0:8c:fe:a8:94:be --vin --invalid
 ```
 
 Broader regression:
 
 ```powershell
-python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --dtc --freeze-frame --multi-ecu
+python tools/elm327/run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --dtc --freeze-frame --multi-ecu
 ```
 
 Run one transport at a time when debugging app behavior. Serial, TCP, and BLE share the same emulator state, so concurrent app sessions can create misleading failures.
@@ -251,7 +251,7 @@ BTNAME=WEACT_CAN485_8CE0
 - [ELM327_COMMANDS.md](ELM327_COMMANDS.md): ELM327 command compatibility matrix and roadmap.
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): license, attribution, and trademark notices.
 - [REFERENCE_LINKS.md](REFERENCE_LINKS.md): links for external reference material not redistributed in this repository.
-- `ecu_sim-win-slcan.py`: Windows SLCAN ECU simulator used for app-facing regression tests.
+- `tools/ecu/ecu_sim-win-slcan.py`: Windows SLCAN ECU simulator used for app-facing regression tests.
 
 ## License and Attribution
 

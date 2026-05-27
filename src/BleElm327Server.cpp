@@ -299,6 +299,7 @@ void BleElm327Server::notifyChunked(NimBLECharacteristic* characteristic,
     if (maxChunkLen < 20) {
         maxChunkLen = 20;
     }
+    const uint32_t interChunkDelayMs = maxChunkLen <= 20 ? 8 : 3;
     size_t offset = 0;
     size_t chunks = 0;
 
@@ -314,7 +315,7 @@ void BleElm327Server::notifyChunked(NimBLECharacteristic* characteristic,
         chunks++;
 
         if (offset < response.length()) {
-            delay(3);
+            delay(interChunkDelayMs);
         }
     }
 

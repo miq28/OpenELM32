@@ -1,6 +1,7 @@
 #include "BleElm327Server.h"
 #include "debug.h"
 #include "console_io.h"
+#include "obdlink_identity.h"
 
 namespace {
 constexpr uint16_t BLE_FAST_CONN_MIN_INTERVAL = 6;   // 7.5 ms, units of 1.25 ms
@@ -185,9 +186,10 @@ void BleElm327Server::begin(const char* advertisedName) {
     server->setCallbacks(serverCallbacks);
 
     NimBLEService* deviceInfo = server->createService("180A");
+    String bleSerialNumber = buildObdlinkSerialNumber();
     addDeviceInfoCharacteristic(deviceInfo, "2A29", manufacturer);
     addDeviceInfoCharacteristic(deviceInfo, "2A24", modelName);
-    addDeviceInfoCharacteristic(deviceInfo, "2A25", "231012345678");
+    addDeviceInfoCharacteristic(deviceInfo, "2A25", bleSerialNumber.c_str());
     addDeviceInfoCharacteristic(deviceInfo, "2A26", firmwareRevision);
     addDeviceInfoCharacteristic(deviceInfo, "2A27", "r1.0.0");
     addDeviceInfoCharacteristic(deviceInfo, "2A28", "2024.02.01");

@@ -38,6 +38,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "can_manager.h"
 #include "debug.h"
 #include "BleElm327Server.h"
+#include "obdlink_identity.h"
 
 static uint32_t elmTxnCounter = 0;
 
@@ -113,7 +114,7 @@ static void appendSuffix(String &out, const char *source, uint8_t count)
 
 static String resolveBluetoothNameTemplate(const char *nameTemplate)
 {
-    const char serialNumber[] = "231012345678";
+    String serialNumber = buildObdlinkSerialNumber();
     uint64_t mac = ESP.getEfuseMac();
     char macHex[13];
     sprintf(macHex,
@@ -143,7 +144,7 @@ static String resolveBluetoothNameTemplate(const char *nameTemplate)
             char code = nameTemplate[pos];
             if (code == 's')
             {
-                appendSuffix(resolved, serialNumber, count);
+                appendSuffix(resolved, serialNumber.c_str(), count);
                 i = pos;
                 continue;
             }
@@ -662,7 +663,7 @@ String ELM327Emu::processELMCmd(char *cmd)
         }
         else if (!strcmp(cmd, "stsn"))
         {
-            retString.concat("231012345678");
+            retString.concat(buildObdlinkSerialNumber());
         }
         else if (!strcmp(cmd, "stdix"))
         {
@@ -672,7 +673,8 @@ String ELM327Emu::processELMCmd(char *cmd)
             retString.concat(lineEnding);
             retString.concat("Mfr: OBD Solutions LLC");
             retString.concat(lineEnding);
-            retString.concat("Serial #: 231012345678");
+            retString.concat("Serial #: ");
+            retString.concat(buildObdlinkSerialNumber());
             retString.concat(lineEnding);
             retString.concat("BL Ver: 4.3");
             retString.concat(lineEnding);

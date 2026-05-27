@@ -241,7 +241,7 @@ STI    -> STN2310 v5.6.19
 STMFR  -> OBD Solutions LLC
 STDI   -> OBDLink CX r1.0.0
 STDIX  -> OBDLink CX details and current BT Dev Name
-STSN   -> 231012345678
+STSN   -> 12-digit OBDLink-style serial with a MAC-derived numeric suffix
 ```
 
 Example broadcast-name write sent by the OBDLink app:

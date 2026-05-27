@@ -515,7 +515,7 @@ void ELM327Emu::processCmd()
 
             if (retString.length() > 0)
             {
-                DEBUG("[%s ELM->APP TX] %s\n",
+                DEBUG("[ELM %s] APP TX: %s\n",
                       activeTransportName(),
                       escapeElmLogText(retString).c_str());
                 txBuffer.sendString(retString);
@@ -611,7 +611,7 @@ void ELM327Emu::sendBatchResponse()
 {
     String response = batchAccumulator + ">";
 
-    DEBUG("[%s ELM->APP TX] %s\n",
+    DEBUG("[ELM %s] APP TX: %s\n",
           activeTransportName(),
           escapeElmLogText(response).c_str());
 

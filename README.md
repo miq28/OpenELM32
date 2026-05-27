@@ -4,6 +4,12 @@ Firmware for ESP32-based CAN/RS485 boards that exposes an ELM327/OBDLink-compati
 
 This project is based on [collin80/ESP32RET](https://github.com/collin80/ESP32RET). Credit goes to Collin Kidder and the original ESP32RET contributors for the base firmware, CAN infrastructure, console, and MIT-licensed foundation.
 
+## Safety Disclaimer
+
+Use this project at your own risk. This firmware can transmit CAN frames and diagnostic requests to a real vehicle. A wrong command, wrong bus speed, bad wiring, unstable firmware build, or unsupported vehicle behavior can cause vehicle faults, module resets, loss of communication, or other damage. The maintainer is not responsible for damage to a vehicle, adapter, computer, or other equipment caused by using this tool.
+
+Treat real-car testing as potentially dangerous. Start in listen-only or simulator workflows where possible, verify wiring and CAN speed, and do not send commands you do not understand. OBD Mode `04` clear-DTC behavior and control/write commands are especially risky: clearing DTCs can erase diagnostic evidence and may affect readiness monitors, while write/control services can change ECU state. These paths are not fully tested on real vehicles and should be considered experimental.
+
 ## Current Scope
 
 - ELM327-style command interface for common OBD apps.
@@ -13,6 +19,7 @@ This project is based on [collin80/ESP32RET](https://github.com/collin80/ESP32RE
 - Optional USB serial ELM327 mode with configurable baud.
 - CAN 11-bit 500 kbit ISO 15765-4 request/response path.
 - ISO-TP multi-frame ECU response assembly for responses such as VIN.
+- GVRET binary CAN tool protocol over USB serial and WiFi/TCP for SavvyCAN-style workflows.
 - LAWICEL/SLCAN-style CAN access for simulator and tool workflows.
 - RS485 debug/console output for app-facing tests where USB serial is used by an OBD app.
 - Runtime profiles and app presets for switching between quiet OBD mode and development/debug mode.
@@ -152,6 +159,21 @@ For OBD app compatibility tests, keep app traffic clean: `PROFILE=OBD`, `CANSTAT
 | WiFi/TCP | Network ELM327 path | ELM server listens on TCP port `35000`. |
 | USB serial | PC app path | Enable with `ELM327SERIAL=1`; use `APP=SERIAL115200` for apps that cannot open 1 Mbit serial. This preset disables RS485 debug. |
 | RS485 | Debug and console | Preferred debug output when USB serial is being used by an OBD app. |
+
+## CAN Tool Protocols
+
+Besides the ELM327-compatible OBD paths, this firmware can act as a general CAN interface.
+
+GVRET is the main low-level CAN tool protocol and is the most powerful path for raw CAN work. It is intended for tools such as SavvyCAN, including CAN frame capture, transmit, and bus analysis workflows. GVRET is available on USB serial when USB is not in ELM327 mode, and over WiFi/TCP on the telnet/GVRET server port `23`. The firmware also advertises an mDNS `gvretServer` TCP service when WiFi is connected.
+
+LAWICEL/SLCAN-style ASCII commands are also supported for tools and scripts that expect that protocol. The default app-facing preset uses USB serial for ELM327 at `115200`, so LAWICEL should be treated as a raw-CAN tool mode rather than the normal OBD app mode. It can be controlled from the console:
+
+```text
+LAWICEL=1
+LAWICEL=0
+```
+
+Use `ELM327SERIAL=0` when you want USB serial to be a raw CAN tool interface instead of an ELM327 command interface. Keep `ELM327SERIAL=1` for serial OBD apps so ELM327 traffic owns the USB serial parser. The currently documented and tested board environments use one CAN transceiver, so multi-bus operation should not be treated as a supported/tested feature in this fork.
 
 ## ECU Simulator
 

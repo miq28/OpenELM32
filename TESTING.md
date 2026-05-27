@@ -273,7 +273,7 @@ BTNAME=WEACT_CAN485_8CE0
 
 Before committing firmware behavior changes:
 
-1. Build locally with PlatformIO.
+1. Build locally with pioarduino.
 2. Flash the ESP32.
 3. Run at least one `elm327_compat_test.py` transport with `--vin --invalid`.
 4. Before a release, run serial, TCP/WiFi, and BLE smoke tests.
@@ -304,7 +304,21 @@ $env:OPENELM_DEBUG_BUILD='1'; $env:OPENELM_CORE_DEBUG_LEVEL='5'; platformio run 
 
 Clear `OPENELM_CORE_DEBUG_LEVEL` and `OPENELM_DEBUG_BUILD` before normal release builds.
 
-Panic backtraces are emitted by the ESP-IDF panic handler on the configured console UART, not through OpenELM32's RS485 debug logger. For USB-serial ELM testing, use the Waveshare coredump-enabled partition table to capture intermittent crashes in flash. After a crash, keep the matching `.pio/build/<env>/firmware.elf` and decode the stored coredump with ESP-IDF coredump tooling.
+Panic backtraces are emitted by the ESP-IDF panic handler on the configured console UART, not through OpenELM32's RS485 debug logger. For USB-serial ELM testing, use the coredump-enabled partition tables to capture intermittent crashes in flash.
+
+After a crash, keep the matching `.pio/build/<env>/firmware.elf` from the flashed build. For Waveshare:
+
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\esp-coredump.exe" --chip esp32s3 --port COM8 --baud 921600 info_corefile --off 0x811000 --save-core waveshare-crash.core .pio\build\waveshare-esp32-s3-rs485-can\firmware.elf
+```
+
+For WeAct:
+
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\esp-coredump.exe" --chip esp32 --port COM8 --baud 921600 info_corefile --off 0x420000 --save-core weact-crash.core .pio\build\weact-studio-can485-v1\firmware.elf
+```
+
+Change `COM8` to the board's USB port. Decode before rebuilding when possible, because the ELF should match the crashed firmware. This is useful for panics, asserts, and watchdog crashes; it will not explain a plain power-on reset, USB reset, or brownout as well.
 
 ## Useful Console Commands
 

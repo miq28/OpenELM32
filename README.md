@@ -21,18 +21,18 @@ This is still firmware for testing and development. It is not a certified diagno
 
 ## Supported Hardware
 
-The active PlatformIO environments are:
+The active pioarduino build environments are:
 
 | Environment | Board target | Notes |
 | --- | --- | --- |
-| `waveshare-esp32-s3-rs485-can` | Waveshare ESP32-S3 RS485/CAN | Default PlatformIO environment. |
+| `waveshare-esp32-s3-rs485-can` | Waveshare ESP32-S3 RS485/CAN | Default pioarduino build environment. |
 | `weact-studio-can485-v1` | WeAct Studio CAN485 V1 | ESP32 CAN/RS485 board used for most recent OBD app testing. |
 
 The original ESP32RET project supported other boards. This fork's README only documents the boards currently represented in `platformio.ini`.
 
 ## Build
 
-This project uses PlatformIO, not the Arduino IDE.
+This project uses the pioarduino PlatformIO-compatible toolchain, not the Arduino IDE.
 
 ```powershell
 platformio run -e weact-studio-can485-v1
@@ -68,7 +68,21 @@ $env:OPENELM_DEBUG_BUILD='1'; $env:OPENELM_CORE_DEBUG_LEVEL='5'; platformio run 
 
 Clear those environment variables before returning to normal builds.
 
-When USB serial is used as the OBD app transport, panic output still goes to the ESP-IDF console UART and may not appear on RS485. The Waveshare build uses `waveshare_16mb_ota_coredump.csv`, which reserves a flash coredump partition so intermittent crashes can be recovered after reboot instead of being caught live on the USB console. If a crash happens, keep the matching `.pio/build/<env>/firmware.elf` from the flashed build and read/decode the flash coredump with ESP-IDF coredump tooling.
+When USB serial is used as the OBD app transport, panic output still goes to the ESP-IDF console UART and may not appear on RS485. The Waveshare build uses `waveshare_16mb_ota_coredump.csv`, which reserves a flash coredump partition so intermittent crashes can be recovered after reboot instead of being caught live on the USB console.
+
+After a crash, keep the matching `.pio/build/<env>/firmware.elf` from the flashed build. For Waveshare, decode the stored coredump with:
+
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\esp-coredump.exe" --chip esp32s3 --port COM8 --baud 921600 info_corefile --off 0x811000 --save-core waveshare-crash.core .pio\build\waveshare-esp32-s3-rs485-can\firmware.elf
+```
+
+For WeAct:
+
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\esp-coredump.exe" --chip esp32 --port COM8 --baud 921600 info_corefile --off 0x420000 --save-core weact-crash.core .pio\build\weact-studio-can485-v1\firmware.elf
+```
+
+Change `COM8` to the board's USB port. Decode before rebuilding when possible, because the ELF should match the crashed firmware.
 
 ## Runtime Modes
 

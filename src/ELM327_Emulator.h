@@ -94,6 +94,7 @@ private:
 
     bool bSpaces;
     bool bBatchedCommands;
+    uint8_t batchOutputFormat;
     uint32_t ecuAddress;
     int tickCounter;
     int ibWritePtr;
@@ -106,6 +107,11 @@ private:
     String processELMCmd(char *cmd);
     void sendTxBuffer();
     void flushPendingReply();
+    void completePendingReply(const String& responseBody);
+    void processBatchLine(char* line);
+    bool processNextBatchCommand();
+    void appendBatchResponse(String response);
+    void sendBatchResponse();
     const char *activeTransportName() const;
     bool isFastPollEligible() const;
     void setProtocol(uint8_t protocol);
@@ -128,6 +134,9 @@ private:
     uint32_t activeTxn;
 
     String replyAccumulator;
+    bool batchActive;
+    String batchRemainder;
+    String batchAccumulator;
 
     bool multiFrameActive;
     uint16_t multiFrameExpectedLen;

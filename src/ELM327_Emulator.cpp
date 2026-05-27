@@ -199,6 +199,7 @@ ELM327Emu::ELM327Emu()
     bDLC = false;
     bSpaces = true;
     bBatchedCommands = false;
+    batchOutputFormat = 0;
     sendingBus = 0;
     currentProtocol = 6;
 
@@ -215,6 +216,9 @@ ELM327Emu::ELM327Emu()
     activeTxn = 0;
 
     replyAccumulator = "";
+    batchActive = false;
+    batchRemainder = "";
+    batchAccumulator = "";
 
     multiFrameActive = false;
     multiFrameExpectedLen = 0;
@@ -298,12 +302,7 @@ void ELM327Emu::loop()
             {
                 multiFrameActive = false;
                 pendingVoltageRequest = false;
-                waitingForReply = false;
-                DEBUG("[ELM %lu %s] APP TX: NO DATA\\r\\n>\n",
-                      activeTxn,
-                      activeTransportName());
-                txBuffer.sendString("NO DATA\r\n>");
-                sendTxBuffer();
+                completePendingReply("NO DATA\r\n");
             }
             else if (!multiFrameActive && (now - lastReplyTime) > 8)
             {
@@ -315,15 +314,8 @@ void ELM327Emu::loop()
         {
             if ((now - requestStartTime) > 200)
             {
-                waitingForReply = false;
                 pendingVoltageRequest = false;
-
-                DEBUG("[ELM %lu %s] APP TX: NO DATA\\r\\n>\n",
-                      activeTxn,
-                      activeTransportName());
-                txBuffer.sendString("NO DATA\r\n>");
-
-                sendTxBuffer();
+                completePendingReply("NO DATA\r\n");
             }
         }
     }
@@ -331,15 +323,31 @@ void ELM327Emu::loop()
 
 void ELM327Emu::flushPendingReply()
 {
+    completePendingReply(replyAccumulator);
+}
+
+void ELM327Emu::completePendingReply(const String& responseBody)
+{
     waitingForReply = false;
 
-    String response = replyAccumulator + ">";
+    String response = responseBody + ">";
     DEBUG("[ELM %lu %s] APP TX: %s\n",
           activeTxn,
           activeTransportName(),
           escapeElmLogText(response).c_str());
 
-    txBuffer.sendString(replyAccumulator);
+    if (batchActive)
+    {
+        appendBatchResponse(response);
+
+        if (!processNextBatchCommand())
+        {
+            sendBatchResponse();
+        }
+        return;
+    }
+
+    txBuffer.sendString(responseBody);
     txBuffer.sendString(">");
     sendTxBuffer();
 }
@@ -458,6 +466,12 @@ void ELM327Emu::processCmd()
           activeTransportName(),
           incomingPrintable[0] ? incomingPrintable : incomingBuffer);
 
+    if (bBatchedCommands && strchr(incomingBuffer, '|') != nullptr)
+    {
+        processBatchLine(incomingBuffer);
+        return;
+    }
+
     char *cmd = incomingBuffer;
 
     while (cmd && *cmd)
@@ -491,6 +505,102 @@ void ELM327Emu::processCmd()
 
         cmd = next;
     }
+}
+
+void ELM327Emu::processBatchLine(char* line)
+{
+    batchActive = true;
+    batchAccumulator = "";
+    batchRemainder = line;
+
+    if (!processNextBatchCommand())
+    {
+        sendBatchResponse();
+    }
+}
+
+bool ELM327Emu::processNextBatchCommand()
+{
+    while (batchRemainder.length() > 0)
+    {
+        int separator = batchRemainder.indexOf('|');
+        String command;
+
+        if (separator >= 0)
+        {
+            command = batchRemainder.substring(0, separator);
+            batchRemainder = batchRemainder.substring(separator + 1);
+        }
+        else
+        {
+            command = batchRemainder;
+            batchRemainder = "";
+        }
+
+        command.trim();
+        if (command.length() == 0)
+        {
+            continue;
+        }
+
+        char cmdBuffer[128];
+        command.toCharArray(cmdBuffer, sizeof(cmdBuffer));
+
+        String retString = processELMCmd(cmdBuffer);
+
+        if (retString.length() > 0)
+        {
+            appendBatchResponse(retString);
+            continue;
+        }
+
+        if (waitingForReply)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void ELM327Emu::appendBatchResponse(String response)
+{
+    response.trim();
+
+    if (response.endsWith(">"))
+    {
+        response.remove(response.length() - 1);
+    }
+
+    response.trim();
+
+    if (response.length() == 0)
+    {
+        return;
+    }
+
+    if (batchAccumulator.length() > 0)
+    {
+        batchAccumulator += "|";
+    }
+
+    batchAccumulator += response;
+}
+
+void ELM327Emu::sendBatchResponse()
+{
+    String response = batchAccumulator + ">";
+
+    DEBUG("[%s ELM->APP TX] %s\n",
+          activeTransportName(),
+          escapeElmLogText(response).c_str());
+
+    txBuffer.sendString(response);
+    sendTxBuffer();
+
+    batchActive = false;
+    batchRemainder = "";
+    batchAccumulator = "";
 }
 
 String ELM327Emu::processELMCmd(char *cmd)
@@ -619,6 +729,16 @@ String ELM327Emu::processELMCmd(char *cmd)
         {
             retString.concat("OK");
         }
+        else if (!strncmp(cmd, "stbcof", 6))
+        {
+            uint8_t requested = strtol(cmd + 6, NULL, 10);
+            if (requested <= 2)
+            {
+                batchOutputFormat = requested;
+            }
+
+            retString.concat("OK");
+        }
         else if (!strncmp(cmd, "stbc", 4))
         {
             if (cmd[4] == '1')
@@ -729,6 +849,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             bDLC = false;
             bSpaces = true;
             bBatchedCommands = false;
+            batchOutputFormat = 0;
             setProtocol(6);
 
             retString.concat("ELM327 v1.4b");
@@ -878,6 +999,7 @@ String ELM327Emu::processELMCmd(char *cmd)
             bDLC = false;
             bSpaces = true;
             bBatchedCommands = false;
+            batchOutputFormat = 0;
             setProtocol(6);
 
             retString.concat("OK");

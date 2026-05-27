@@ -38,6 +38,7 @@ def main(argv):
     parser.add_argument("--clear-dtc", action="store_true")
     parser.add_argument("--freeze-frame", action="store_true")
     parser.add_argument("--multi-ecu", action="store_true")
+    parser.add_argument("--batching", action="store_true")
     parser.add_argument("--timeout", type=float, default=1.5)
 
     args = parser.parse_args(argv)
@@ -63,6 +64,8 @@ def main(argv):
         flags.append("--freeze-frame")
     if args.multi_ecu:
         flags.append("--multi-ecu")
+    if args.batching:
+        flags.append("--batching")
 
     # Serial first: opening USB serial can reset the ESP32 and produce boot noise.
     if args.serial:

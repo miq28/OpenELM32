@@ -122,6 +122,14 @@ MULTI_ECU_SEQUENCE = [
     ("ATH0", [r"OK"]),
 ]
 
+BATCHING_SEQUENCE = [
+    ("STBC1", [r"OK"]),
+    ("STBCOF1", [r"OK"]),
+    ("ATH0|ATS0|ATSH7E0|010C", [r"OK.*OK.*OK.*410C"]),
+    ("ATH1|010C", [r"OK.*7E8.*410C"]),
+    ("STBC0", [r"OK"]),
+]
+
 
 def build_sections(
     include_vin=False,
@@ -133,6 +141,7 @@ def build_sections(
     include_clear_dtc=False,
     include_freeze_frame=False,
     include_multi_ecu=False,
+    include_batching=False,
 ):
     sections = [("BASELINE", DEFAULT_SEQUENCE)]
 
@@ -159,6 +168,9 @@ def build_sections(
 
     if include_multi_ecu:
         sections.append(("MULTI ECU", MULTI_ECU_SEQUENCE))
+
+    if include_batching:
+        sections.append(("BATCHING", BATCHING_SEQUENCE))
 
     if include_clear_dtc:
         sections.append(("DTC CLEAR", CLEAR_DTC_SEQUENCE))
@@ -367,6 +379,7 @@ def run_sequence(
     include_clear_dtc=False,
     include_freeze_frame=False,
     include_multi_ecu=False,
+    include_batching=False,
 ):
     failures = 0
     sections = build_sections(
@@ -379,6 +392,7 @@ def run_sequence(
         include_clear_dtc,
         include_freeze_frame,
         include_multi_ecu,
+        include_batching,
     )
 
     for section_name, sequence in sections:
@@ -415,6 +429,7 @@ async def run_ble_sequence(
     include_clear_dtc=False,
     include_freeze_frame=False,
     include_multi_ecu=False,
+    include_batching=False,
 ):
     failures = 0
     sections = build_sections(
@@ -427,6 +442,7 @@ async def run_ble_sequence(
         include_clear_dtc,
         include_freeze_frame,
         include_multi_ecu,
+        include_batching,
     )
 
     await conn.connect()
@@ -472,6 +488,7 @@ def main(argv):
     serial_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     serial_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     serial_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
+    serial_parser.add_argument("--batching", action="store_true", help="also test OBDLink/STN batched command parsing")
 
     tcp_parser = subparsers.add_parser("tcp")
     tcp_parser.add_argument("--host", required=True)
@@ -485,6 +502,7 @@ def main(argv):
     tcp_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     tcp_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     tcp_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
+    tcp_parser.add_argument("--batching", action="store_true", help="also test OBDLink/STN batched command parsing")
 
     ble_parser = subparsers.add_parser("ble")
     ble_parser.add_argument("--name")
@@ -498,6 +516,7 @@ def main(argv):
     ble_parser.add_argument("--clear-dtc", action="store_true", help="also test simulator OBD service 04 clear DTC")
     ble_parser.add_argument("--freeze-frame", action="store_true", help="also test OBD freeze-frame service 02")
     ble_parser.add_argument("--multi-ecu", action="store_true", help="also test multiple ECU responses to a functional request")
+    ble_parser.add_argument("--batching", action="store_true", help="also test OBDLink/STN batched command parsing")
 
     parser.add_argument("--timeout", type=float, default=1.5)
 
@@ -518,6 +537,7 @@ def main(argv):
                 args.clear_dtc,
                 args.freeze_frame,
                 args.multi_ecu,
+                args.batching,
             )
         )
         return 1 if failures else 0
@@ -540,6 +560,7 @@ def main(argv):
             args.clear_dtc,
             args.freeze_frame,
             args.multi_ecu,
+            args.batching,
         )
     finally:
         conn.close()

@@ -85,6 +85,12 @@ Fuller regression when an app-facing change touches identity, OBDLink probes, DT
 python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --vin --invalid --formatting --identity --obdlink --dtc --freeze-frame --multi-ecu
 ```
 
+Include OBDLink/STN batched command parsing when changing `STBC`, pipe-delimited command handling, or response formatting:
+
+```powershell
+python run_elm327_tests.py --serial COM5 --serial-baud 1000000 --tcp 192.168.1.242 --ble e0:8c:fe:a8:94:be --obdlink --batching
+```
+
 Simulator-only DTC clear validation:
 
 ```powershell

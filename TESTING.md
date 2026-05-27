@@ -47,6 +47,15 @@ APP=DEV
 
 `APP=SERIAL115200` keeps RS485 debug off by default. Re-enable it with `DEBUG485=1` only when you need a separate debug console.
 
+To reset saved settings to the same default state used by a newly flashed board:
+
+```text
+RESETCONFIG=1
+```
+
+Power cycle after clearing config.
+This command also works over USB while USB ELM327 mode is active.
+
 Recommended OBD app testing baseline:
 
 ```text
@@ -54,7 +63,7 @@ PROFILE=OBD
 CANSTAT=0
 DEBUG=1
 DEBUGSER=0
-DEBUG485=1
+DEBUG485=0
 ```
 
 `CANSTAT=1` is useful during development, but keep it off for normal OBD app validation unless the test specifically needs CAN throughput stats.

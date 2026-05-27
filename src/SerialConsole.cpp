@@ -161,6 +161,7 @@ void SerialConsole::printMenu()
     Logger::console("ELMFASTPOLL=%i - Return physical Mode 01 replies immediately (0=Dis, 1=En)", settings.elmFastPoll);
     Logger::console("APP=<preset> - Apply preset (OBD, SERIAL115200, SERIAL1000000, DEV)");
     Logger::console("STATUS=1 - Show current runtime mode");
+    Logger::console("RESETCONFIG=1 - Clear saved config; reboot applies defaults");
     consolePrintln();
 
     Logger::console("LAWICEL=%i - Set whether to accept LAWICEL commands (0 = Off, 1 = On)", settings.enableLawicel);
@@ -245,7 +246,7 @@ void SerialConsole::handleShortCmd()
         prefs.begin(PREF_NAME, false);
         prefs.clear();
         prefs.end();
-        Logger::console("Power cycle to reset to factory defaults");
+        Logger::console("Saved config cleared; power cycle to apply defaults");
         break;
     case '~':
         consolePrintln("DEBUGGING MODE!");
@@ -631,6 +632,20 @@ void SerialConsole::handleConfigCmd()
                         settings.elmFastPoll ? "ENABLED" : "DISABLED");
 
         writeEEPROM = true;
+    }
+    else if (cmdString == String("RESETCONFIG") || cmdString == String("FACTORYRESET"))
+    {
+        if (newValue == 1)
+        {
+            prefs.begin(PREF_NAME, false);
+            prefs.clear();
+            prefs.end();
+            Logger::console("Saved config cleared; power cycle to apply defaults");
+        }
+        else
+        {
+            Logger::console("Use RESETCONFIG=1 to clear saved config");
+        }
     }
     else if (cmdString == String("PROFILE"))
     {

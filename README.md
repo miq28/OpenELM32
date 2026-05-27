@@ -43,18 +43,22 @@ Upload and monitor ports are normally set locally in `platformio.ini` or passed 
 
 ```powershell
 platformio run -e weact-studio-can485-v1 -t upload
-platformio device monitor -b 1000000
+platformio device monitor -b 115200
 ```
 
 ## Runtime Modes
 
 Use the serial console to switch the firmware between app-facing and development behavior.
 
-Recommended app-facing mode:
+New boards and reset configs default to the `APP=SERIAL115200` behavior: USB ELM327 at `115200`, OBD quiet profile, CAN stats off, and RS485 debug off.
+
+Reset saved config:
 
 ```text
-APP=OBD
+RESETCONFIG=1
 ```
+
+The reset command also works over USB while USB ELM327 mode is active. Power cycle after clearing config.
 
 USB serial ELM327 presets:
 
@@ -85,9 +89,10 @@ DEBUGSER=0
 DEBUG485=1
 BTNAME=WEACT_CAN485_8CE0
 STATUS=1
+RESETCONFIG=1
 ```
 
-For OBD app compatibility tests, keep app traffic clean: `PROFILE=OBD`, `CANSTAT=0`, debug enabled to RS485, and debug disabled on USB serial unless the test specifically needs USB debug.
+For OBD app compatibility tests, keep app traffic clean: `PROFILE=OBD`, `CANSTAT=0`, and debug disabled on USB serial unless the test specifically needs USB debug.
 
 ## App Transports
 

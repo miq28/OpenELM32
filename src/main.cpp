@@ -43,7 +43,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "console_io.h"
 #include "BleElm327Server.h"
 
-static constexpr uint32_t DEFAULT_SERIAL_BAUD = 1000000;
+static constexpr uint32_t DEFAULT_SERIAL_BAUD = 115200;
 
 const char *resetReasonToStr(esp_reset_reason_t r)
 {
@@ -94,19 +94,19 @@ void printPrefs()
     consolePrintf("STA_PASS=%s\n", prefs.getString("STA_PASS", "").c_str());
     consolePrintf("binarycomm=%d\n", prefs.getBool("binarycomm", false));
     consolePrintf("serialBaud=%u\n", prefs.getUInt("serialBaud", DEFAULT_SERIAL_BAUD));
-    consolePrintf("loglevel=%u\n", prefs.getUChar("loglevel", 0));
+    consolePrintf("loglevel=%u\n", prefs.getUChar("loglevel", 1));
     consolePrintf("runtimeProfile=%s\n",
-                  prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV) == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
-    consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", false));
-    consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", false));
+                  prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_OBD) == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
+    consolePrintf("enableLawicel=%d\n", prefs.getBool("enableLawicel", true));
+    consolePrintf("elmSerial=%d\n", prefs.getBool("elmSerial", true));
     consolePrintf("elmFastPoll=%d\n", prefs.getBool("elmFastPoll", false));
-    consolePrintf("consoleCAN=%d\n", prefs.getBool("consoleCAN", true));
+    consolePrintf("consoleCAN=%d\n", prefs.getBool("consoleCAN", false));
     consolePrintf("canStats=%d\n",
                   prefs.getBool("canStats",
-                                prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV) != RUNTIME_PROFILE_OBD));
+                                prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_OBD) != RUNTIME_PROFILE_OBD));
     consolePrintf("sendingBus=%d\n", prefs.getInt("sendingBus", 0));
     consolePrintf("btname=%s\n", prefs.getString("btname", "").c_str());
-    consolePrintf("dbg_en=%d\n", prefs.getBool("dbg_en", false));
+    consolePrintf("dbg_en=%d\n", prefs.getBool("dbg_en", true));
     consolePrintf("dbg_ser=%d\n", prefs.getBool("dbg_ser", false));
     consolePrintf("dbg_485=%d\n", prefs.getBool("dbg_485", false));
     consolePrintf("systype=%u\n", prefs.getUChar("systype", 0));
@@ -344,13 +344,13 @@ void loadSettings()
     settings.useBinarySerialComm = prefs.getBool("binarycomm", false);
     settings.serialBaud = prefs.getUInt("serialBaud", DEFAULT_SERIAL_BAUD);
     settings.logLevel = prefs.getUChar("loglevel", 1); // info
-    settings.runtimeProfile = prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV);
+    settings.runtimeProfile = prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_OBD);
     settings.wifiMode = prefs.getUChar("wifiMode", 2); // Wifi defaults to creating an AP
     settings.enableLawicel = prefs.getBool("enableLawicel", true);
     settings.enableVirtualOBD = prefs.getBool("virtualOBD", false);
-    settings.enableElmSerial = prefs.getBool("elmSerial", false);
+    settings.enableElmSerial = prefs.getBool("elmSerial", true);
     settings.elmFastPoll = prefs.getBool("elmFastPoll", false);
-    settings.consoleCANOutput = prefs.getBool("consoleCAN", true);
+    settings.consoleCANOutput = prefs.getBool("consoleCAN", false);
     settings.canStatsOutput = prefs.getBool("canStats",
                                             settings.runtimeProfile != RUNTIME_PROFILE_OBD);
     settings.sendingBus = prefs.getInt("sendingBus", 0);
@@ -362,13 +362,12 @@ void loadSettings()
 
     debug_enabled = prefs.getBool("dbg_en", true);
     debug_to_serial = prefs.getBool("dbg_ser", false);
-    debug_to_rs485 = prefs.getBool("dbg_485", true);
+    debug_to_rs485 = prefs.getBool("dbg_485", false);
 
     if (settings.runtimeProfile == RUNTIME_PROFILE_OBD)
     {
         settings.consoleCANOutput = false;
         debug_to_serial = false;
-        debug_to_rs485 = true;
     }
 
     uint8_t defaultVal;
@@ -524,8 +523,8 @@ void setup()
 
     prefs.begin(PREF_NAME, true);
     bool quietUsbBoot =
-        prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_DEV) == RUNTIME_PROFILE_OBD ||
-        prefs.getBool("elmSerial", false);
+        prefs.getUChar("runtimeProfile", RUNTIME_PROFILE_OBD) == RUNTIME_PROFILE_OBD ||
+        prefs.getBool("elmSerial", true);
     prefs.end();
 
     debug_to_serial = !quietUsbBoot;
@@ -651,6 +650,17 @@ static void processElmSerialByte(uint8_t inByte)
         {
             controlLength = 0;
             disableElmSerialMode();
+            return;
+        }
+
+        if (strcasecmp(controlBuffer, "RESETCONFIG=1") == 0 ||
+            strcasecmp(controlBuffer, "FACTORYRESET=1") == 0)
+        {
+            controlLength = 0;
+            prefs.begin(PREF_NAME, false);
+            prefs.clear();
+            prefs.end();
+            Serial.print("\r\nOK saved config cleared; power cycle to apply defaults\r\n");
             return;
         }
 

@@ -46,6 +46,30 @@ platformio run -e weact-studio-can485-v1 -t upload
 platformio device monitor -b 115200
 ```
 
+Normal builds use `CORE_DEBUG_LEVEL=0`, normal optimization, and include debug symbols in the local ELF so the VS Code upload button still produces decodable crash traces.
+
+For a one-off core-log build without changing environments:
+
+```powershell
+$env:OPENELM_CORE_DEBUG_LEVEL='5'; platformio run -e waveshare-esp32-s3-rs485-can
+```
+
+For a deeper crash-trace build with lower optimization:
+
+```powershell
+$env:OPENELM_DEBUG_BUILD='1'; platformio run -e waveshare-esp32-s3-rs485-can
+```
+
+If you also need verbose ESP/Arduino core logs, combine both variables:
+
+```powershell
+$env:OPENELM_DEBUG_BUILD='1'; $env:OPENELM_CORE_DEBUG_LEVEL='5'; platformio run -e waveshare-esp32-s3-rs485-can
+```
+
+Clear those environment variables before returning to normal builds.
+
+When USB serial is used as the OBD app transport, panic output still goes to the ESP-IDF console UART and may not appear on RS485. The Waveshare build uses `waveshare_16mb_ota_coredump.csv`, which reserves a flash coredump partition so intermittent crashes can be recovered after reboot instead of being caught live on the USB console. If a crash happens, keep the matching `.pio/build/<env>/firmware.elf` from the flashed build and read/decode the flash coredump with ESP-IDF coredump tooling.
+
 ## Runtime Modes
 
 Use the serial console to switch the firmware between app-facing and development behavior.

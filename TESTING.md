@@ -280,6 +280,32 @@ Before committing firmware behavior changes:
 5. Check one real app that matters for the change.
 6. Confirm RS485 debug output still works; RS485 is the dedicated debug channel.
 
+## Crash Debug Builds
+
+Normal builds use `CORE_DEBUG_LEVEL=0`, normal optimization, and include debug symbols in the local ELF so the VS Code upload button still produces decodable crash traces.
+
+For a one-off core-log build:
+
+```powershell
+$env:OPENELM_CORE_DEBUG_LEVEL='5'; platformio run -e waveshare-esp32-s3-rs485-can
+```
+
+For deeper crash tracing with lower optimization:
+
+```powershell
+$env:OPENELM_DEBUG_BUILD='1'; platformio run -e waveshare-esp32-s3-rs485-can
+```
+
+If verbose ESP/Arduino core logs are needed too:
+
+```powershell
+$env:OPENELM_DEBUG_BUILD='1'; $env:OPENELM_CORE_DEBUG_LEVEL='5'; platformio run -e waveshare-esp32-s3-rs485-can
+```
+
+Clear `OPENELM_CORE_DEBUG_LEVEL` and `OPENELM_DEBUG_BUILD` before normal release builds.
+
+Panic backtraces are emitted by the ESP-IDF panic handler on the configured console UART, not through OpenELM32's RS485 debug logger. For USB-serial ELM testing, use the Waveshare coredump-enabled partition table to capture intermittent crashes in flash. After a crash, keep the matching `.pio/build/<env>/firmware.elf` and decode the stored coredump with ESP-IDF coredump tooling.
+
 ## Useful Console Commands
 
 ```text

@@ -79,7 +79,7 @@ static void printRuntimeStatus()
 {
     Logger::console("Runtime status:");
     Logger::console("  PROFILE=%s", settings.runtimeProfile == RUNTIME_PROFILE_OBD ? "OBD" : "DEV");
-    Logger::console("  USB ELM=%s SERBAUD=%lu",
+    Logger::console("  ELM327SERIAL=%s SERBAUD=%lu",
                     settings.enableElmSerial ? "ON" : "OFF",
                     (unsigned long)settings.serialBaud);
     Logger::console("  CLASSICBT=%i",

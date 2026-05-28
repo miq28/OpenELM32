@@ -165,4 +165,7 @@ private:
     volatile uint16_t eventTail = 0;
 
     inline void pushEvent(const CAN_EVENT &evt);
+
+    bool driverInstalled = false;
+    bool driverStarted = false;
 };

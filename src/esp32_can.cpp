@@ -89,7 +89,7 @@ void alertsToText(uint32_t alerts, char *out, size_t len)
 }
 
 ESP32CAN CAN0(GPIO_NUM_16, GPIO_NUM_17, 0);
-ESP32CAN CAN1(GPIO_NUM_18, GPIO_NUM_19, 1);
+// ESP32CAN CAN1(GPIO_NUM_18, GPIO_NUM_19, 1);
 
 ESP32CAN::ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t)
 {
@@ -109,9 +109,18 @@ ESP32CAN::ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t)
 
 uint32_t ESP32CAN::begin(uint32_t baudrate)
 {
-    // safely restart TWAI driver if already running
-    twai_stop();
-    twai_driver_uninstall();
+    // safely restart TWAI driver only if we know it was installed
+    if (driverInstalled)
+    {
+        if (driverStarted)
+        {
+            twai_stop();
+            driverStarted = false;
+        }
+
+        twai_driver_uninstall();
+        driverInstalled = false;
+    }
 
     currentBaudrate = baudrate;
 
@@ -159,28 +168,49 @@ uint32_t ESP32CAN::begin(uint32_t baudrate)
         return 0;
     }
 
-    if (twai_driver_install(&g_config, &t_config, &f_config) != ESP_OK)
+    esp_err_t err = twai_driver_install(&g_config, &t_config, &f_config);
+    if (err != ESP_OK)
     {
+        driverInstalled = false;
+        driverStarted = false;
         return 0;
     }
 
-    if (twai_start() != ESP_OK)
+    driverInstalled = true;
+
+    err = twai_start();
+    if (err != ESP_OK)
     {
         twai_driver_uninstall();
+        driverInstalled = false;
+        driverStarted = false;
         return 0;
     }
 
+    driverStarted = true;
     return baudrate;
 }
 
 void ESP32CAN::disable()
 {
-    twai_stop();
-    twai_driver_uninstall();
+    if (driverInstalled)
+    {
+        if (driverStarted)
+        {
+            twai_stop();
+            driverStarted = false;
+        }
+
+        twai_driver_uninstall();
+        driverInstalled = false;
+    }
 }
 
 bool ESP32CAN::sendFrame(CAN_FRAME &frame)
 {
+    if (!driverInstalled || !driverStarted)
+        return false;
+
     twai_message_t msg = {};
     msg.identifier = frame.id;
     msg.data_length_code = frame.length;
@@ -201,7 +231,10 @@ bool ESP32CAN::sendFrame(CAN_FRAME &frame)
 
 uint32_t ESP32CAN::read(CAN_FRAME &frame)
 {
-    twai_message_t msg;
+    if (!driverInstalled || !driverStarted)
+        return 0;
+
+    twai_message_t msg = {};
 
     if (twai_receive(&msg, 0) == ESP_OK)
     {
@@ -215,20 +248,28 @@ uint32_t ESP32CAN::read(CAN_FRAME &frame)
         memcpy(frame.data.uint8, msg.data, msg.data_length_code);
         return 1;
     }
+
     return 0;
 }
 
 uint16_t ESP32CAN::available()
 {
-    twai_status_info_t status;
+    if (!driverInstalled || !driverStarted)
+        return 0;
+
+    twai_status_info_t status = {};
     if (twai_get_status_info(&status) == ESP_OK)
         return status.msgs_to_rx;
+
     return 0;
 }
 
 bool ESP32CAN::isInErrorState()
 {
-    twai_status_info_t status;
+    if (!driverInstalled || !driverStarted)
+        return false;
+
+    twai_status_info_t status = {};
 
     if (twai_get_status_info(&status) != ESP_OK)
         return false;
@@ -276,7 +317,10 @@ inline void ESP32CAN::pushEvent(const CAN_EVENT &evt)
 
 void ESP32CAN::pollEvents()
 {
-    uint32_t alerts;
+    if (!driverInstalled || !driverStarted)
+        return;
+
+    uint32_t alerts = 0;
 
     static uint32_t lastAlerts = 0;
     static uint32_t lastReportTime = 0;
@@ -292,10 +336,11 @@ void ESP32CAN::pollEvents()
         lastAlerts = alerts;
         lastReportTime = now;
 
-        twai_status_info_t status;
-        twai_get_status_info(&status);
+        twai_status_info_t status = {};
+        if (twai_get_status_info(&status) != ESP_OK)
+            return;
 
-        CAN_EVENT evt;
+        CAN_EVENT evt = {};
         evt.timestamp = millis();
         evt.alerts = alerts;
         evt.rx_err = status.rx_error_counter;

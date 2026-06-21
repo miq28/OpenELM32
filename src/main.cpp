@@ -44,6 +44,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "BleElm327Server.h"
 #include "ClassicBtElm327Server.h"
 #include "openelm_identity.h"
+#include "weact_sd.h"
 
 static constexpr uint32_t DEFAULT_SERIAL_BAUD = 115200;
 
@@ -569,6 +570,19 @@ void setup()
     printSystemSettings(SysSettings);
 
     delay(100); // just to make sure all the debug output is done before we start doing things that might mess with it
+
+#if defined(WEACT_STUDIO_CAN485_V1)
+    if (WeActSD::begin())
+    {
+        consolePrintf("SD card mounted: %.1f MB total, %.1f MB used\n",
+                      WeActSD::totalBytes() / (1024.0 * 1024.0),
+                      WeActSD::usedBytes() / (1024.0 * 1024.0));
+    }
+    else
+    {
+        consolePrintln("SD card not available");
+    }
+#endif
 
     if (settings.enableClassicBt)
     {

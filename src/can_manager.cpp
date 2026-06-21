@@ -9,6 +9,7 @@
 #include "debug.h"
 #include "rgb_status.h"
 #include "console_io.h"
+#include "weact_can_logger.h"
 
 // twai alerts copied here for ease of access. Look up alerts right here:
 // #define TWAI_ALERT_TX_IDLE                  0x00000001  /**< Alert(1): No more messages to transmit */
@@ -119,6 +120,17 @@ void CANManager::setup()
 
 void CANManager::sendFrame(CAN_COMMON *bus, CAN_FRAME &frame)
 {
+    uint8_t busNumber = 0;
+    for (uint8_t i = 0; i < SysSettings.numBuses; i++)
+    {
+        if (canBuses[i] == bus)
+        {
+            busNumber = i;
+            break;
+        }
+    }
+
+    WeActCanLogger::logFrame(frame, busNumber, true);
     bus->sendFrame(frame);
 }
 

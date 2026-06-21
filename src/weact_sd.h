@@ -12,6 +12,7 @@ bool isMounted();
 uint8_t cardType();
 uint64_t totalBytes();
 uint64_t usedBytes();
+bool probe();
 
 File open(const char *path, const char *mode = FILE_READ);
 bool exists(const char *path);

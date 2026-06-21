@@ -44,7 +44,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "BleElm327Server.h"
 #include "ClassicBtElm327Server.h"
 #include "openelm_identity.h"
-#include "weact_sd.h"
+#include "weact_can_logger.h"
 
 static constexpr uint32_t DEFAULT_SERIAL_BAUD = 115200;
 
@@ -571,19 +571,6 @@ void setup()
 
     delay(100); // just to make sure all the debug output is done before we start doing things that might mess with it
 
-#if defined(WEACT_STUDIO_CAN485_V1)
-    if (WeActSD::begin())
-    {
-        consolePrintf("SD card mounted: %.1f MB total, %.1f MB used\n",
-                      WeActSD::totalBytes() / (1024.0 * 1024.0),
-                      WeActSD::usedBytes() / (1024.0 * 1024.0));
-    }
-    else
-    {
-        consolePrintln("SD card not available");
-    }
-#endif
-
     if (settings.enableClassicBt)
     {
         String classicName = buildOpenElmClassicName();
@@ -611,6 +598,11 @@ void setup()
 
     canManager.setup();
     canManager.setSendToConsole(settings.enableElmSerial ? false : settings.consoleCANOutput);
+
+#if defined(WEACT_STUDIO_CAN485_V1)
+    if (!WeActCanLogger::startAutoService())
+        consolePrintln("SD logging service could not start");
+#endif
 
     SysSettings.lawicelMode = false;
     SysSettings.lawicelAutoPoll = false;
@@ -804,4 +796,5 @@ void loop()
     rgbStatusLoop();
 
     elmEmulator.loop();
+    WeActCanLogger::service();
 }

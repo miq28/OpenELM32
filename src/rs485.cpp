@@ -30,13 +30,13 @@ void RS485Port::begin(uint32_t baud)
 
     RS485Serial.begin(baud, SERIAL_8N1, (int)RS485_RO, (int)RS485_DI);
 
-    txQueue = xQueueCreate(64, sizeof(tx_item_t));
+    txQueue = xQueueCreate(16, sizeof(tx_item_t));
     uartMutex = xSemaphoreCreateMutex(); // ✅ NEW
 
     xTaskCreatePinnedToCore(
         txTask,
         "rs485_tx",
-        8192,
+        4096,
         this,
         1,
         NULL,

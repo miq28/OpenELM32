@@ -1,5 +1,6 @@
 #include "esp32_can.h"
 #include "rgb_status.h"
+#include "weact_can_logger.h"
 
 const char *alertToStr(uint32_t a)
 {
@@ -91,7 +92,8 @@ void alertsToText(uint32_t alerts, char *out, size_t len)
 ESP32CAN CAN0(GPIO_NUM_16, GPIO_NUM_17, 0);
 // ESP32CAN CAN1(GPIO_NUM_18, GPIO_NUM_19, 1);
 
-ESP32CAN::ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t)
+ESP32CAN::ESP32CAN(gpio_num_t rxPin, gpio_num_t txPin, uint8_t busNum)
+    : busNumber(busNum)
 {
     g_config = TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NORMAL);
     g_config.tx_queue_len = 16;
@@ -246,6 +248,7 @@ uint32_t ESP32CAN::read(CAN_FRAME &frame)
         frame.rtr = msg.rtr;
 
         memcpy(frame.data.uint8, msg.data, msg.data_length_code);
+        WeActCanLogger::logFrame(frame, busNumber, false);
         return 1;
     }
 

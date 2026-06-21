@@ -152,6 +152,7 @@ public:
     bool isInErrorState();
 
 private:
+    uint8_t busNumber;
     twai_general_config_t g_config;
     twai_timing_config_t t_config;
     twai_filter_config_t f_config;
